@@ -1,7 +1,7 @@
 // Clarity / Smooth / Neural upscaler
 // mode 0 = Clarity: integer nearest
 // mode 1 = Smooth: sharp xBR (hard palette)
-// mode 2 = Neural: TinySR 9-class neighbor classifier (hard palette, no cream)
+// mode 2 = Neural CNN (experimental): tip-gated classifier — prefer Smooth/xBR until stable
 //
 // Weight layout (tinysr_weights.bin): W1[864] B1[32] W2[9216] B2[32] W3[41472] B3[144]
 // (C=32, s=4, classes=9)  — W3 out = 9*s*s
@@ -306,8 +306,8 @@ void tinysr_classes(int2 p, out uint cls[16])
                     best = c;
                 }
             }
-            // Confidence gate: only reshape diagonals when clearly better than E
-            if (best != 4u && bestv < vE + 0.35f)
+            // Strong confidence gate — weak scores caused rainbow edge fringes
+            if (best != 4u && bestv < vE + 1.25f)
                 best = 4u;
             cls[oy * 4 + ox] = best;
         }
@@ -320,20 +320,23 @@ void main(uint3 tid : SV_DispatchThreadID)
 
     if (mode == 2u)
     {
-        // One thread per LQ pixel → write full s×s block
+        // Safe Neural: tip-gated CNN. Wrong neighbor classes were painting
+        // multicolor "explosions" on glyph/sprite edges — only accept a non-E
+        // class on outer tip wedges, matching Scale2x/xBR geometry, with a
+        // strong margin over center (E).
         if (tid.x >= srcWidth || tid.y >= srcHeight)
             return;
         int2 lp = int2(tid.xy);
         float3 neigh[9];
-        neigh[0] = fetch(lp + int2(-1, -1)); // A
-        neigh[1] = fetch(lp + int2(0, -1));  // B
-        neigh[2] = fetch(lp + int2(1, -1));  // C
-        neigh[3] = fetch(lp + int2(-1, 0));  // D
-        neigh[4] = fetch(lp);                // E
-        neigh[5] = fetch(lp + int2(1, 0));   // F
-        neigh[6] = fetch(lp + int2(-1, 1));  // G
-        neigh[7] = fetch(lp + int2(0, 1));   // H
-        neigh[8] = fetch(lp + int2(1, 1));   // I
+        neigh[0] = fetch(lp + int2(-1, -1));
+        neigh[1] = fetch(lp + int2(0, -1));
+        neigh[2] = fetch(lp + int2(1, -1));
+        neigh[3] = fetch(lp + int2(-1, 0));
+        neigh[4] = fetch(lp);
+        neigh[5] = fetch(lp + int2(1, 0));
+        neigh[6] = fetch(lp + int2(-1, 1));
+        neigh[7] = fetch(lp + int2(0, 1));
+        neigh[8] = fetch(lp + int2(1, 1));
         uint cls[16];
         tinysr_classes(lp, cls);
 
@@ -345,8 +348,48 @@ void main(uint3 tid : SV_DispatchThreadID)
                 uint ny = (oy * ns) / s;
                 nx = min(nx, ns - 1u);
                 ny = min(ny, ns - 1u);
-                uint c = min(cls[ny * 4u + nx], 8u);
+
+                // Position inside the LQ cell [0,1]
+                float fx = (s == 1u) ? 0.5f : (float(ox) + 0.5f) / float(s);
+                float fy = (s == 1u) ? 0.5f : (float(oy) + 0.5f) / float(s);
+
+                uint c = 4u; // default: center color (no fringe)
+                uint raw = min(cls[ny * 4u + nx], 8u);
+
+                // Outer tip of each quadrant only (same idea as xBR tip wedges)
+                const float tip = 0.85f;
+                bool allow = false;
+                if (fx >= 0.5f && fy >= 0.5f)
+                {
+                    float2 q = float2(fx - 0.5f, fy - 0.5f) * 2.0f;
+                    allow = (q.x + q.y) >= tip && (raw == 5u || raw == 7u || raw == 8u); // F,H,I
+                }
+                else if (fx < 0.5f && fy >= 0.5f)
+                {
+                    float2 q = float2(0.5f - fx, fy - 0.5f) * 2.0f;
+                    allow = (q.x + q.y) >= tip && (raw == 3u || raw == 7u || raw == 6u); // D,H,G
+                }
+                else if (fx < 0.5f && fy < 0.5f)
+                {
+                    float2 q = float2(0.5f - fx, 0.5f - fy) * 2.0f;
+                    allow = (q.x + q.y) >= tip && (raw == 1u || raw == 3u || raw == 0u); // B,D,A
+                }
+                else
+                {
+                    float2 q = float2(fx - 0.5f, 0.5f - fy) * 2.0f;
+                    allow = (q.x + q.y) >= tip && (raw == 1u || raw == 5u || raw == 2u); // B,F,C
+                }
+
+                if (allow)
+                    c = raw;
+
+                // Reject painting a totally different palette into fills:
+                // neighbor must share an edge with E in the LQ grid sense —
+                // already enforced by tip classes; also skip if equal to E.
                 float3 outc = neigh[c];
+                if (c != 4u && cdist(outc, neigh[4]) < (2.0f / 255.0f))
+                    outc = neigh[4];
+
                 int2 dp = int2(lp.x * int(s) + int(ox), lp.y * int(s) + int(oy));
                 if (dp.x < int(dstWidth) && dp.y < int(dstHeight))
                     g_output[dp] = float4(outc, 1.0f);

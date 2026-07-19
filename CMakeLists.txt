@@ -41,12 +41,13 @@ add_executable(4kscaler
     src/tiny_sr_upscaler.cpp
     src/input.cpp
     src/prefs.cpp
+    src/launcher.cpp
 )
 target_include_directories(4kscaler PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${NIS_DIR}
 )
-target_link_libraries(4kscaler PRIVATE simplenes d3d11 dxgi d3dcompiler ole32 shell32 uuid winmm)
+target_link_libraries(4kscaler PRIVATE simplenes d3d11 dxgi d3dcompiler ole32 shell32 uuid winmm comdlg32 msimg32)
 if(MINGW)
     target_link_options(4kscaler PRIVATE -static-libgcc -static-libstdc++)
 endif()
@@ -63,6 +64,9 @@ add_custom_command(TARGET 4kscaler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/shaders/tiny_sr.hlsl
         $<TARGET_FILE_DIR:4kscaler>/shaders/tiny_sr.hlsl
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/shaders/tinysr_weights.bin
+        $<TARGET_FILE_DIR:4kscaler>/shaders/tinysr_weights.bin
 )
 
 install(TARGETS 4kscaler RUNTIME DESTINATION bin)

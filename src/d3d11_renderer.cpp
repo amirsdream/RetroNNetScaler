@@ -428,7 +428,9 @@ void D3D11Renderer::present(ScaleMode mode, float sharpness, NisUpscaler* nis, T
         if (mode == ScaleMode::Smooth)
             srMode = 1u;
         else if (mode == ScaleMode::Neural)
-            srMode = 2u;
+            // CNN neighbor-classifier currently fringes wrong colors on edges.
+            // Use sharp xBR (same hard-palette path as Smooth) until a safer net ships.
+            srMode = 1u;
         if (tinySr && tinySr->ready() && ensureOutputTexture(destW, destH))
         {
             tinySr->dispatch(m_srcSRV,

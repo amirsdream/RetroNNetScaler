@@ -47,12 +47,16 @@ cmake --build build -j
 
 ## Run
 
-Provide your own legally obtained `.nes` ROM:
+Double-click `build\4kscaler.exe` (or run with no args) for the start screen: pick a ROM, scale mode, and resolution, then **Play**.
+
+Or pass a ROM on the command line:
 
 ```bat
 python tools\gen_test_rom.py
 build\4kscaler.exe --rom roms\smb.nes --scale neural --res 4k
 ```
+
+Provide your own legally obtained `.nes` ROM.
 
 ### Controls
 

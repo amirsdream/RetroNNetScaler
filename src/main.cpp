@@ -1,5 +1,6 @@
 #include "d3d11_renderer.h"
 #include "input.h"
+#include "launcher.h"
 #include "nes_host.h"
 #include "nis_upscaler.h"
 #include "prefs.h"
@@ -47,7 +48,7 @@ void updateWindowTitle(HWND hwnd)
     const int scale = g_app->renderer ? g_app->renderer->lastIntegerScale() : 1;
     std::snprintf(title,
                   sizeof(title),
-                  "4kscaler | %s | %s | %s | %dx | phase %d,%d | sharp %.2f | %.0f FPS  [F1][F3] arrows=phase [[/]]sharp",
+                  "RetroNNetScaler | %s | %s | %s | %dx | phase %d,%d | sharp %.2f | %.0f FPS  [F1][F3]",
                   g_app->romName.c_str(),
                   scaler::scaleModeName(g_app->prefs->scaleMode),
                   scaler::outputResName(g_app->prefs->outputRes),
@@ -384,6 +385,24 @@ int main(int argc, char** argv)
         scaler::applyOutputRes(prefs);
     clampResToMonitor(prefs);
 
+    // GUI launcher when no ROM on CLI (skip for dump / automation)
+    if (romPath.empty() && dumpFrames <= 0)
+    {
+        scaler::LaunchConfig launch;
+        launch.prefs             = prefs;
+        launch.romPath           = prefs.lastRomPath;
+        launch.cancelled         = true;
+        if (!scaler::showLauncher(launch))
+        {
+            timeEndPeriod(1);
+            return 0;
+        }
+        prefs   = launch.prefs;
+        romPath = launch.romPath;
+        scaler::applyOutputRes(prefs);
+        clampResToMonitor(prefs);
+    }
+
     if (romPath.empty())
     {
         printUsage();
@@ -395,8 +414,10 @@ int main(int argc, char** argv)
     if (!nes.loadRom(romPath))
     {
         std::cerr << "Failed to load ROM: " << romPath << std::endl;
+        MessageBoxA(nullptr, ("Failed to load ROM:\n" + romPath).c_str(), "RetroNNetScaler", MB_ICONERROR);
         return 1;
     }
+    prefs.lastRomPath = romPath;
     nes.setMute(prefs.mute);
 
     HINSTANCE hInst = GetModuleHandle(nullptr);
@@ -413,7 +434,7 @@ int main(int argc, char** argv)
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
     HWND hwnd = CreateWindowExA(0,
                                 wc.lpszClassName,
-                                "4kscaler",
+                                "RetroNNetScaler",
                                 WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                 CW_USEDEFAULT,
                                 CW_USEDEFAULT,

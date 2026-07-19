@@ -23,7 +23,7 @@ const char* scaleModeName(ScaleMode mode)
     case ScaleMode::Smooth:
         return "Smooth(sharp)";
     case ScaleMode::Neural:
-        return "Neural";
+        return "Neural(sharp)"; // CNN fringe-safe: sharp xBR until classifier is reliable
     case ScaleMode::DLSS:
         return "DLSS(NIS)";
     }
@@ -144,6 +144,8 @@ bool loadPrefs(Prefs& prefs)
             prefs.windowWidth = std::stoi(val);
         else if (key == "windowHeight")
             prefs.windowHeight = std::stoi(val);
+        else if (key == "lastRomPath")
+            prefs.lastRomPath = val;
     }
     return true;
 }
@@ -163,6 +165,7 @@ bool savePrefs(const Prefs& prefs)
     out << "mute=" << (prefs.mute ? 1 : 0) << '\n';
     out << "windowWidth=" << prefs.windowWidth << '\n';
     out << "windowHeight=" << prefs.windowHeight << '\n';
+    out << "lastRomPath=" << prefs.lastRomPath << '\n';
     return true;
 }
 }

@@ -31,9 +31,10 @@ struct Prefs
     int       phaseY        = 0;
     bool      vsync         = false;
     bool      fullscreen    = false;
-    bool      mute          = false;
-    int       windowWidth   = 3840;
-    int       windowHeight  = 2160;
+    bool        mute         = false;
+    int         windowWidth  = 3840;
+    int         windowHeight = 2160;
+    std::string lastRomPath;
 };
 
 const char* scaleModeName(ScaleMode mode);
