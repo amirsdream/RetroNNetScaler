@@ -51,7 +51,7 @@ Provide your own legally obtained `.nes` ROM:
 
 ```bat
 python tools\gen_test_rom.py
-build\4kscaler.exe --rom roms\smb.nes --scale tinysr --res 4k
+build\4kscaler.exe --rom roms\smb.nes --scale neural --res 4k
 ```
 
 ### Controls
@@ -75,3 +75,4 @@ Prefs: `%APPDATA%\4kscaler\prefs.ini`.
 - [docs/AI_FPGA_PATH.md](docs/AI_FPGA_PATH.md) — AI → hardware  
 - [docs/DE10_NANO.md](docs/DE10_NANO.md) — lab board (replaceable)  
 - [docs/DLSS_EVAL.md](docs/DLSS_EVAL.md) — DLSS as PC reference only  
+- [tools/train/README.md](tools/train/README.md) — Neural TinySR training (CUDA)
