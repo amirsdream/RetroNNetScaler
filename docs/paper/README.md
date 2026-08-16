@@ -1,12 +1,27 @@
-# Technical paper
+# Technical paper (IEEEtran)
 
-**PDF:** [RetroNNetScaler_Technical_Paper.pdf](RetroNNetScaler_Technical_Paper.pdf)
+IEEE conference-format source:
 
-Regenerate:
+| File | Role |
+|------|------|
+| [`retronnetscaler.tex`](retronnetscaler.tex) | IEEEtran conference paper |
+| [`references.bib`](references.bib) | BibTeX bibliography |
+| [`retronnetscaler.pdf`](retronnetscaler.pdf) | Compiled PDF |
+
+## Build
+
+Requires MiKTeX / TeX Live with `IEEEtran` and `IEEEtran.bst`.
 
 ```bat
 cd docs\paper
-python generate_paper.py
+pdflatex retronnetscaler.tex
+bibtex retronnetscaler
+pdflatex retronnetscaler.tex
+pdflatex retronnetscaler.tex
 ```
 
-Requires `reportlab` (`pip install reportlab`).
+Or:
+
+```bat
+latexmk -pdf retronnetscaler.tex
+```

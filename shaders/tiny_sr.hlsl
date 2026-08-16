@@ -1,7 +1,7 @@
-// Clarity / Smooth / Neural upscaler
+// Clarity / Smooth / Contour upscaler
 // mode 0 = Clarity: integer nearest
-// mode 1 = Smooth: sharp xBR (hard palette)
-// mode 2 = Neural CNN (experimental): tip-gated classifier — prefer Smooth/xBR until stable
+// mode 1 = Smooth: sharp xBR (hard palette, tip wedges)
+// mode 2 = Contour: Kopf hard Voronoi — sharp fills, straight diagonal edges (no cream)
 //
 // Weight layout (tinysr_weights.bin): W1[864] B1[32] W2[9216] B2[32] W3[41472] B3[144]
 // (C=32, s=4, classes=9)  — W3 out = 9*s*s
@@ -19,25 +19,9 @@ cbuffer TinySRParams : register(b0)
 };
 
 Texture2D<float4> g_input : register(t0);
-StructuredBuffer<float> g_weights : register(t1);
+StructuredBuffer<float> g_weights : register(t1); // optional / unused by Contour
 RWTexture2D<float4> g_output : register(u0);
 SamplerState g_linear : register(s0);
-
-static const uint kC = 32;
-static const uint kClasses = 9;
-static const uint kOffW1 = 0;
-static const uint kOffB1 = 864;
-static const uint kOffW2 = 896;
-static const uint kOffB2 = 10112;
-static const uint kOffW3 = 10144;
-static const uint kOffB3 = 51616; // 10144 + 32*144*9
-
-float W1(uint i) { return g_weights[kOffW1 + i]; }
-float B1(uint i) { return g_weights[kOffB1 + i]; }
-float W2(uint i) { return g_weights[kOffW2 + i]; }
-float B2(uint i) { return g_weights[kOffB2 + i]; }
-float W3(uint i) { return g_weights[kOffW3 + i]; }
-float B3(uint i) { return g_weights[kOffB3 + i]; }
 
 float3 fetch(int2 p)
 {
@@ -228,89 +212,193 @@ float3 xbrSharp(int2 src, float fx, float fy)
     return snapExact9(res, A, B, C, D, E, F, G, H, I);
 }
 
-// ---- TinySR CNN (matches tools/train/model.py, C=16, 3 convs) ----
-float relu(float x) { return max(x, 0.0f); }
+// Contour: Kopf–Lischinski hard reshape (no cream).
+// Similarity graph → planarize crossing diagonals → generalized Voronoi on
+// node + half-edges. Long 45° stairs share one straight edge (not EPX zigzags).
 
-void conv1_at(int2 p, out float h[32])
+bool similarYUV(float3 a, float3 b)
 {
-    [loop] for (int oc = 0; oc < 32; ++oc)
-    {
-        float acc = B1(oc);
-        [loop] for (int ky = -1; ky <= 1; ++ky)
-            [loop] for (int kx = -1; kx <= 1; ++kx)
-            {
-                float3 c = fetch(p + int2(kx, ky));
-                [loop] for (int ic = 0; ic < 3; ++ic)
-                {
-                    uint idx = uint((((oc * 3 + ic) * 3 + (ky + 1)) * 3 + (kx + 1)));
-                    acc += W1(idx) * c[ic];
-                }
-            }
-        h[oc] = relu(acc);
-    }
+    // Kopf / hqx channel thresholds
+    float3 d = abs(rgb2yuv(a) - rgb2yuv(b));
+    return d.x <= (48.0f / 255.0f) && d.y <= (7.0f / 255.0f) && d.z <= (6.0f / 255.0f);
 }
 
-// Returns argmax class id [0..8] per 4x4 subpixel (A..I neighborhood)
-void tinysr_classes(int2 p, out uint cls[16])
+// 2x2 layout: a b
+//             d e
+// returns: 0 = no diagonal, 1 = keep a–e, 2 = keep b–d
+uint planarDiag(float3 a, float3 b, float3 d, float3 e)
 {
-    float f1[9][32];
-    [loop] for (int dy = -1; dy <= 1; ++dy)
-        [loop] for (int dx = -1; dx <= 1; ++dx)
-            conv1_at(p + int2(dx, dy), f1[(dy + 1) * 3 + (dx + 1)]);
+    const bool ae = similarYUV(a, e);
+    const bool bd = similarYUV(b, d);
+    if (!ae && !bd)
+        return 0u;
 
-    float f2c[32];
-    [loop] for (int oc = 0; oc < 32; ++oc)
+    const bool ab = similarYUV(a, b);
+    const bool be = similarYUV(b, e);
+    const bool ad = similarYUV(a, d);
+    const bool de = similarYUV(d, e);
+
+    // Fully connected shaded block — diagonals unused
+    if (ab && be && ad && de)
+        return 0u;
+
+    if (ae && !bd)
+        return 1u;
+    if (bd && !ae)
+        return 2u;
+
+    // Both diagonals cross — choose (curves / sparse / islands, local approx)
+    const bool onlyDiag = !(ab || be || ad || de);
+    if (!onlyDiag)
+        return 0u;
+
+    uint sa = (ab ? 1u : 0u) + (ad ? 1u : 0u);
+    uint se = (be ? 1u : 0u) + (de ? 1u : 0u);
+    uint sb = (ab ? 1u : 0u) + (be ? 1u : 0u);
+    uint sd = (ad ? 1u : 0u) + (de ? 1u : 0u);
+    int islandAE = ((sa == 0u) || (se == 0u)) ? 5 : 0;
+    int islandBD = ((sb == 0u) || (sd == 0u)) ? 5 : 0;
+    float curveAE = 4.0f / (1.0f + 32.0f * cdist(a, e));
+    float curveBD = 4.0f / (1.0f + 32.0f * cdist(b, d));
+    float scoreAE = curveAE + (float)islandAE - (float)(sa + se);
+    float scoreBD = curveBD + (float)islandBD - (float)(sb + sd);
+    if (scoreAE > scoreBD + 1e-4f)
+        return 1u;
+    if (scoreBD > scoreAE + 1e-4f)
+        return 2u;
+    return 0u;
+}
+
+float3 contourHard(int2 src, float fx, float fy)
+{
+    const float3 A = fetch(src + int2(-1, -1));
+    const float3 B = fetch(src + int2(0, -1));
+    const float3 C = fetch(src + int2(1, -1));
+    const float3 D = fetch(src + int2(-1, 0));
+    const float3 E = fetch(src);
+    const float3 F = fetch(src + int2(1, 0));
+    const float3 G = fetch(src + int2(-1, 1));
+    const float3 H = fetch(src + int2(0, 1));
+    const float3 I = fetch(src + int2(1, 1));
+
+    // Four 2×2 blocks around E
+    const uint kTL = planarDiag(A, B, D, E);
+    const uint kTR = planarDiag(B, C, E, F);
+    const uint kBL = planarDiag(D, E, G, H);
+    const uint kBR = planarDiag(E, F, H, I);
+
+    // Global axes so both sides of a stair share ONE edge (fixes EPX zigzag)
+    const float2 p = float2(src) + float2(fx, fy);
+    const float U = p.x + p.y;
+    const float V = p.x - p.y;
+    const float Us = float(src.x + src.y);
+    const float Vs = float(src.x - src.y);
+
+    float3 res = E;
+    bool hit = false;
+
+    // / stairs — constant U, bisector at *.5 so adjacent cells agree
+    if (kTL == 2u && U < Us + 0.5f) { res = B; hit = true; } // keep B–D
+    if (kBR == 2u && U > Us + 1.5f) { res = F; hit = true; } // keep F–H
+    if (kTL == 1u && U < Us + 0.5f) { res = A; hit = true; } // keep A–E stroke
+    if (kBR == 1u && U > Us + 1.5f) { res = I; hit = true; } // keep E–I stroke
+
+    // \ stairs — constant V
+    if (kTR == 1u && V > Vs + 0.5f) { res = B; hit = true; } // keep B–F
+    if (kBL == 1u && V < Vs - 0.5f) { res = D; hit = true; } // keep D–H
+    if (kTR == 2u && V > Vs + 0.5f) { res = C; hit = true; } // keep C–E stroke
+    if (kBL == 2u && V < Vs - 0.5f) { res = G; hit = true; } // keep E–G stroke
+
+    // 2:1 / 1:2 hard wedges when no 45° edge claimed this sample
+    if (!hit)
     {
-        float acc = B2(oc);
-        [loop] for (int ky = -1; ky <= 1; ++ky)
-            [loop] for (int kx = -1; kx <= 1; ++kx)
-            {
-                int id = (ky + 1) * 3 + (kx + 1);
-                [loop] for (int ic = 0; ic < 32; ++ic)
-                {
-                    uint widx = uint((((oc * 32 + ic) * 3 + (ky + 1)) * 3 + (kx + 1)));
-                    acc += W2(widx) * f1[id][ic];
-                }
-            }
-        f2c[oc] = relu(acc);
-    }
-
-    // 9 classes × 16 subpixels (pixel_shuffle layout: class-major then oy,ox)
-    const int nOut = 144; // 9 * 4 * 4
-    float ch[144];
-    [loop] for (int oc = 0; oc < nOut; ++oc)
-    {
-        float acc = B3(oc);
-        [loop] for (int ky = -1; ky <= 1; ++ky)
-            [loop] for (int kx = -1; kx <= 1; ++kx)
-                [loop] for (int ic = 0; ic < 32; ++ic)
-                {
-                    uint widx = uint((((oc * 32 + ic) * 3 + (ky + 1)) * 3 + (kx + 1)));
-                    acc += W3(widx) * f2c[ic];
-                }
-        ch[oc] = acc;
-    }
-
-    [loop] for (int oy = 0; oy < 4; ++oy)
-        [loop] for (int ox = 0; ox < 4; ++ox)
+        if (fx >= 0.5f && fy >= 0.5f && !ceq(E, F) && !ceq(E, H) && !ceq(F, H))
         {
-            uint best = 4u; // E
-            float bestv = ch[(4 * 4 + oy) * 4 + ox];
-            float vE = bestv;
-            [loop] for (uint c = 0u; c < kClasses; ++c)
+            float qx = (fx - 0.5f) * 2.0f;
+            float qy = (fy - 0.5f) * 2.0f;
+            if (similarYUV(E, I) && !similarYUV(F, H))
             {
-                float v = ch[(c * 4 + oy) * 4 + ox];
-                if (v > bestv)
-                {
-                    bestv = v;
-                    best = c;
-                }
+                if (qx + qy >= 1.0f)
+                    res = I;
             }
-            // Strong confidence gate — weak scores caused rainbow edge fringes
-            if (best != 4u && bestv < vE + 1.25f)
-                best = 4u;
-            cls[oy * 4 + ox] = best;
+            else
+            {
+                bool steep = cdist(F, G) >= 2.0f * cdist(H, C);
+                bool shallow = 2.0f * cdist(F, G) <= cdist(H, C);
+                if (steep && qy > 2.0f * qx)
+                    res = H;
+                else if (shallow && qx > 2.0f * qy)
+                    res = F;
+                else if (qx + qy >= 1.0f)
+                    res = (cdist(E, F) <= cdist(E, H)) ? F : H;
+            }
         }
+        else if (fx < 0.5f && fy >= 0.5f && !ceq(E, D) && !ceq(E, H) && !ceq(D, H))
+        {
+            float qx = (0.5f - fx) * 2.0f;
+            float qy = (fy - 0.5f) * 2.0f;
+            if (similarYUV(E, G) && !similarYUV(D, H))
+            {
+                if (qx + qy >= 1.0f)
+                    res = G;
+            }
+            else
+            {
+                bool steep = cdist(D, I) >= 2.0f * cdist(H, A);
+                bool shallow = 2.0f * cdist(D, I) <= cdist(H, A);
+                if (steep && qy > 2.0f * qx)
+                    res = H;
+                else if (shallow && qx > 2.0f * qy)
+                    res = D;
+                else if (qx + qy >= 1.0f)
+                    res = (cdist(E, D) <= cdist(E, H)) ? D : H;
+            }
+        }
+        else if (fx >= 0.5f && fy < 0.5f && !ceq(E, B) && !ceq(E, F) && !ceq(B, F))
+        {
+            float qx = (fx - 0.5f) * 2.0f;
+            float qy = (0.5f - fy) * 2.0f;
+            if (similarYUV(E, C) && !similarYUV(B, F))
+            {
+                if (qx + qy >= 1.0f)
+                    res = C;
+            }
+            else
+            {
+                bool steep = cdist(B, I) >= 2.0f * cdist(F, G);
+                bool shallow = 2.0f * cdist(B, I) <= cdist(F, G);
+                if (steep && qy > 2.0f * qx)
+                    res = F;
+                else if (shallow && qx > 2.0f * qy)
+                    res = B;
+                else if (qx + qy >= 1.0f)
+                    res = (cdist(E, B) <= cdist(E, F)) ? B : F;
+            }
+        }
+        else if (fx < 0.5f && fy < 0.5f && !ceq(E, B) && !ceq(E, D) && !ceq(B, D))
+        {
+            float qx = (0.5f - fx) * 2.0f;
+            float qy = (0.5f - fy) * 2.0f;
+            if (similarYUV(E, A) && !similarYUV(B, D))
+            {
+                if (qx + qy >= 1.0f)
+                    res = A;
+            }
+            else
+            {
+                bool steep = cdist(B, G) >= 2.0f * cdist(D, I);
+                bool shallow = 2.0f * cdist(B, G) <= cdist(D, I);
+                if (steep && qy > 2.0f * qx)
+                    res = D;
+                else if (shallow && qx > 2.0f * qy)
+                    res = B;
+                else if (qx + qy >= 1.0f)
+                    res = (cdist(E, B) <= cdist(E, D)) ? B : D;
+            }
+        }
+    }
+
+    return res;
 }
 
 [numthreads(8, 8, 1)]
@@ -318,96 +406,20 @@ void main(uint3 tid : SV_DispatchThreadID)
 {
     const uint s = max(scale, 1u);
 
-    if (mode == 2u)
-    {
-        // Safe Neural: tip-gated CNN. Wrong neighbor classes were painting
-        // multicolor "explosions" on glyph/sprite edges — only accept a non-E
-        // class on outer tip wedges, matching Scale2x/xBR geometry, with a
-        // strong margin over center (E).
-        if (tid.x >= srcWidth || tid.y >= srcHeight)
-            return;
-        int2 lp = int2(tid.xy);
-        float3 neigh[9];
-        neigh[0] = fetch(lp + int2(-1, -1));
-        neigh[1] = fetch(lp + int2(0, -1));
-        neigh[2] = fetch(lp + int2(1, -1));
-        neigh[3] = fetch(lp + int2(-1, 0));
-        neigh[4] = fetch(lp);
-        neigh[5] = fetch(lp + int2(1, 0));
-        neigh[6] = fetch(lp + int2(-1, 1));
-        neigh[7] = fetch(lp + int2(0, 1));
-        neigh[8] = fetch(lp + int2(1, 1));
-        uint cls[16];
-        tinysr_classes(lp, cls);
-
-        [loop] for (uint oy = 0u; oy < s; ++oy)
-            [loop] for (uint ox = 0u; ox < s; ++ox)
-            {
-                uint ns = max(netScale, 1u);
-                uint nx = (ox * ns) / s;
-                uint ny = (oy * ns) / s;
-                nx = min(nx, ns - 1u);
-                ny = min(ny, ns - 1u);
-
-                // Position inside the LQ cell [0,1]
-                float fx = (s == 1u) ? 0.5f : (float(ox) + 0.5f) / float(s);
-                float fy = (s == 1u) ? 0.5f : (float(oy) + 0.5f) / float(s);
-
-                uint c = 4u; // default: center color (no fringe)
-                uint raw = min(cls[ny * 4u + nx], 8u);
-
-                // Outer tip of each quadrant only (same idea as xBR tip wedges)
-                const float tip = 0.85f;
-                bool allow = false;
-                if (fx >= 0.5f && fy >= 0.5f)
-                {
-                    float2 q = float2(fx - 0.5f, fy - 0.5f) * 2.0f;
-                    allow = (q.x + q.y) >= tip && (raw == 5u || raw == 7u || raw == 8u); // F,H,I
-                }
-                else if (fx < 0.5f && fy >= 0.5f)
-                {
-                    float2 q = float2(0.5f - fx, fy - 0.5f) * 2.0f;
-                    allow = (q.x + q.y) >= tip && (raw == 3u || raw == 7u || raw == 6u); // D,H,G
-                }
-                else if (fx < 0.5f && fy < 0.5f)
-                {
-                    float2 q = float2(0.5f - fx, 0.5f - fy) * 2.0f;
-                    allow = (q.x + q.y) >= tip && (raw == 1u || raw == 3u || raw == 0u); // B,D,A
-                }
-                else
-                {
-                    float2 q = float2(fx - 0.5f, 0.5f - fy) * 2.0f;
-                    allow = (q.x + q.y) >= tip && (raw == 1u || raw == 5u || raw == 2u); // B,F,C
-                }
-
-                if (allow)
-                    c = raw;
-
-                // Reject painting a totally different palette into fills:
-                // neighbor must share an edge with E in the LQ grid sense —
-                // already enforced by tip classes; also skip if equal to E.
-                float3 outc = neigh[c];
-                if (c != 4u && cdist(outc, neigh[4]) < (2.0f / 255.0f))
-                    outc = neigh[4];
-
-                int2 dp = int2(lp.x * int(s) + int(ox), lp.y * int(s) + int(oy));
-                if (dp.x < int(dstWidth) && dp.y < int(dstHeight))
-                    g_output[dp] = float4(outc, 1.0f);
-            }
-        return;
-    }
-
     if (tid.x >= dstWidth || tid.y >= dstHeight)
         return;
 
     const int2 src = int2(tid.x / s, tid.y / s);
     float3 outRgb = fetch(src);
 
-    if (mode == 1u)
+    if (mode == 1u || mode == 2u)
     {
         float fx = (s == 1) ? 0.5f : (float(tid.x % s) + 0.5f) / float(s);
         float fy = (s == 1) ? 0.5f : (float(tid.y % s) + 0.5f) / float(s);
-        outRgb = xbrSharp(src, fx, fy);
+        if (mode == 1u)
+            outRgb = xbrSharp(src, fx, fy);
+        else
+            outRgb = contourHard(src, fx, fy);
     }
 
     g_output[tid.xy] = float4(outRgb, 1.0f);

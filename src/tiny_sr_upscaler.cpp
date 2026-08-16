@@ -195,10 +195,7 @@ void TinySrUpscaler::dispatch(ID3D11ShaderResourceView* input,
                               float sharpen,
                               std::uint32_t mode)
 {
-    // Without weights, Neural → Clarity
-    if (mode == 2u && !m_weightSRV)
-        mode = 0u;
-
+    // Contour (mode 2) is geometric — no CNN weights required.
     Params p {};
     p.srcWidth  = srcW;
     p.srcHeight = srcH;
@@ -223,9 +220,7 @@ void TinySrUpscaler::dispatch(ID3D11ShaderResourceView* input,
     m_context->CSSetConstantBuffers(0, 1, &m_cbuffer);
     m_context->CSSetShader(m_cs, nullptr, 0);
 
-    const UINT gw = (mode == 2u) ? srcW : dstW;
-    const UINT gh = (mode == 2u) ? srcH : dstH;
-    m_context->Dispatch((gw + 7) / 8, (gh + 7) / 8, 1);
+    m_context->Dispatch((dstW + 7) / 8, (dstH + 7) / 8, 1);
 
     ID3D11ShaderResourceView* nullSRVs[2] = { nullptr, nullptr };
     ID3D11UnorderedAccessView* nullUAV    = nullptr;

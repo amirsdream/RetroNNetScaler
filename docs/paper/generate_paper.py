@@ -33,8 +33,8 @@ def make_styles():
             "TitleCustom",
             parent=base["Title"],
             fontName="Times-Bold",
-            fontSize=18,
-            leading=22,
+            fontSize=17,
+            leading=21,
             alignment=TA_CENTER,
             textColor=ink,
             spaceAfter=8,
@@ -181,8 +181,8 @@ def header_footer(canvas, doc):
     canvas.line(2.2 * cm, y_top, A4[0] - 2.2 * cm, y_top)
     canvas.setFont("Times-Italic", 8)
     canvas.setFillColor(colors.HexColor("#555555"))
-    canvas.drawString(2.2 * cm, A4[1] - 1.2 * cm, "RetroNNetScaler - Technical Report")
-    canvas.drawRightString(A4[0] - 2.2 * cm, A4[1] - 1.2 * cm, "Realtime NES Upscaling")
+    canvas.drawString(2.2 * cm, A4[1] - 1.2 * cm, "RetroNNetScaler — Technical Report")
+    canvas.drawRightString(A4[0] - 2.2 * cm, A4[1] - 1.2 * cm, "Hard-Palette Contour Upscaling")
     canvas.line(2.2 * cm, 1.5 * cm, A4[0] - 2.2 * cm, 1.5 * cm)
     canvas.drawCentredString(A4[0] / 2, 1.1 * cm, str(doc.page))
     canvas.restoreState()
@@ -226,7 +226,7 @@ def build():
         rightMargin=2.2 * cm,
         topMargin=2.0 * cm,
         bottomMargin=2.0 * cm,
-        title="RetroNNetScaler: Hard-Palette Realtime Upscaling for NES Pixel Art",
+        title="RetroNNetScaler: Contour Upscaling for Hard-Palette NES Pixel Art",
         author="RetroNNetScaler Project",
     )
 
@@ -235,142 +235,141 @@ def build():
     def P(style, text):
         return Paragraph(text, s[style])
 
-    story.append(Spacer(1, 8 * mm))
+    story.append(Spacer(1, 6 * mm))
     story.append(
         P(
             "title",
-            "RetroNNetScaler: Hard-Palette Realtime Upscaling<br/>for Classic NES Pixel Art",
+            "RetroNNetScaler: Contour Upscaling for<br/>Hard-Palette NES Pixel Art",
         )
     )
     story.append(
         P(
             "subtitle",
-            "A systems and learning report on integer Clarity, sharp xBR geometry,<br/>"
-            "and discrete neighbor-classification CNNs for 4K presentation",
+            "From silky CNN residuals to shared half-plane diagonals —<br/>"
+            "a systems report on Clarity, Smooth, Contour, and failed neural paths",
         )
     )
     story.append(P("author", "RetroNNetScaler Project"))
     story.append(
         P(
             "meta",
-            "Technical Report | July 2026 | "
+            "Technical Report | August 2026 | "
             "https://github.com/amirsdream/RetroNNetScaler",
         )
     )
     story.append(HRFlowable(width="100%", thickness=0.8, color=s["rule"], spaceAfter=12))
 
+    # ----- Abstract -----
     story.append(P("h1", "Abstract"))
-    abs_text = (
-        "<b>Abstract.</b> Upscaling palette-limited pixel art for modern 4K displays is "
-        "fundamentally different from natural-image super-resolution. Methods that "
-        "minimise continuous reconstruction error (bilinear, ESRGAN-class networks) "
-        "introduce mid-tone cream colours and silky outlines that destroy the aliased "
-        "aesthetic of 8-bit games. We present <b>RetroNNetScaler</b>, a Windows realtime "
-        "pipeline that embeds a NES core (SimpleNES), presents frames through Direct3D 11, "
-        "and offers three production paths: <i>Clarity</i> (maximum integer nearest), "
-        "<i>Smooth</i> (Hyllian-style xBR-sharp with hard neighbourhood snapping), and "
-        "<i>Neural</i> (a tiny 9-class neighbour classifier trained against Scale2xSFX "
-        "teachers). We show that residual RGB regression underfits sparse diagonal "
-        "structure and that unconstrained discrete classifiers create multicolour edge "
-        "fringes when false-positive neighbour picks exceed about 1% of pixels. A "
-        "tip-gated, hard-palette design - and falling back Neural presentation to sharp "
-        "xBR when the classifier is unreliable - preserves discrete NES colours while "
-        "improving perceived diagonals. The network (about 52k weights, C=32) is small "
-        "enough for future FPGA mapping. We report training setup, validation metrics, "
-        "failure modes, and an FPGA-oriented roadmap."
+    story.append(
+        P(
+            "abstract",
+            "<b>Abstract.</b> Upscaling palette-limited NES frames for 4K displays is "
+            "not natural-image super-resolution. Continuous filters and photo-SR networks "
+            "invent mid-tone <i>cream</i> colours and silky outlines that erase the aliased "
+            "8-bit aesthetic. We present <b>RetroNNetScaler</b>, a Windows realtime pipeline "
+            "(SimpleNES + Direct3D 11) with three hard-palette production modes: "
+            "<i>Clarity</i> (maximum integer nearest), <i>Smooth</i> (xBR-sharp tip wedges "
+            "with neighbourhood snap), and <i>Contour</i> (Kopf-style planarized diagonals "
+            "with <b>shared global half-planes</b> so long 45° stairs become one continuous "
+            "edge). We also document a TinySR neighbour-classification CNN (~52k weights) "
+            "trained against Scale2xSFX: palette drift can be forced to zero, yet "
+            "unconstrained decoding produces multicolour edge fringes. The central result "
+            "is methodological — <b>discretise the output domain first</b>; for continuous "
+            "diagonals without cream, agree on one geometric edge across adjacent cells "
+            "rather than regressing RGB. The Contour pass is FPGA-shaped (local 3×3 "
+            "equality tests + plane tests, no weights).",
+        )
     )
-    story.append(P("abstract", abs_text))
     story.append(
         P(
             "body0",
-            "<b>Keywords:</b> pixel-art upscaling, NES, xBR, Scale2xSFX, discrete "
-            "super-resolution, realtime D3D11, FPGA-oriented CNN",
+            "<b>Keywords:</b> pixel-art upscaling, NES, Contour, Kopf–Lischinski, xBR, "
+            "hard palette, realtime D3D11, discrete super-resolution, FPGA",
         )
     )
 
+    # ----- 1 -----
     story.append(P("h1", "1. Introduction"))
     story.append(
         P(
             "body",
             "Classic console graphics were authored on a square pixel lattice with a "
-            "small discrete palette. When those frames are shown on a 3840x2160 panel, "
-            "naive bilinear or bicubic filters blur edges and invent colours that never "
-            "existed in the ROM. Recent deep super-resolution models, trained for "
-            "photographs or anime with continuous losses, tend to produce a "
-            "<i>silky</i> look: soft outlines, chroma bleed, and palette drift. For "
-            "retro enthusiasts and preservationists, that look is a regression.",
+            "small discrete palette. Magnified onto a 3840×2160 panel, bilinear and "
+            "photo-SR methods blur edges and invent colours that never existed in the "
+            "ROM. Players and preservationists reject that <i>silky</i> look: soft "
+            "outlines, chroma bleed, and palette drift.",
         )
     )
     story.append(
         P(
             "body",
-            "Rule-based pixel-art scalers such as EPX/Scale2x, Scale2xSFX, HQX, and "
-            "xBR/xBRZ address diagonals by copying existing neighbour colours rather "
-            "than interpolating. Kopf and Lischinski depixelization goes further toward "
-            "resolution-independent vectors, which many players perceive as too smooth "
-            "for classic NES draw. Our product goal is different: <b>hard colours, "
-            "cleaner 45-degree diagonals, realtime 4K presentation</b>, with a path "
-            "toward FPGA implementation.",
+            "Rule-based scalers (EPX/Scale2x, Scale2xSFX, HQX, xBR/xBRZ) copy existing "
+            "neighbour colours. Kopf and Lischinski depixelization goes further toward "
+            "resolution-independent vectors — often too smooth for classic NES draw. "
+            "Our product goal is narrower: <b>hard colours, continuous 45° diagonals, "
+            "realtime 4K presentation</b>, with a path toward FPGA implementation.",
         )
     )
     story.append(
         P(
             "body",
-            "This report documents the RetroNNetScaler prototype: system architecture, "
-            "shader algorithms, a CUDA training pipeline for a discrete TinySR "
-            "classifier, quantitative validation on Super Mario Bros. dumps, and "
-            "lessons from failure modes (cream residuals, edge colour explosions).",
+            "This report covers system architecture; Clarity / Smooth / Contour "
+            "algorithms; why EPX-local cuts still look pixelated; the shared "
+            "half-plane fix; the TinySR CNN experiment and its failure modes; and "
+            "an FPGA-oriented roadmap.",
         )
     )
 
+    # ----- 2 -----
     story.append(P("h1", "2. Related Work"))
     story.append(P("h2", "2.1 Classical pixel-art scalers"))
     story.append(
         P(
             "body",
-            "EPX/Scale2x expands each pixel into a 2x2 block using equality tests on "
-            "the 3x3 neighbourhood, never inventing colours. Scale2xSFX (and Scale3xSFX) "
-            "refine diagonal decisions with a wider support and reduce hollow-diamond "
-            "artifacts. xBR and xBRZ detect edges with weighted colour distances "
-            "(often in YUV) and write tip wedges; Hyllian-style sharp variants avoid "
-            "blending. These methods remain the gold standard for hard-palette look.",
+            "EPX/Scale2x expands each pixel with equality tests on a 3×3 neighbourhood "
+            "and never invents colours. Scale2xSFX widens support to reduce hollow "
+            "diamonds. xBR/xBRZ detect edges with weighted YUV distances and write tip "
+            "wedges; Hyllian-style sharp variants avoid blending. These remain the "
+            "reference for hard-palette look.",
         )
     )
-    story.append(P("h2", "2.2 Depixelization and continuous SR"))
+    story.append(P("h2", "2.2 Depixelization"))
     story.append(
         P(
             "body",
-            "Kopf-Lischinski depixelization extracts smooth contours suitable for "
-            "vector magnification. Deep unsupervised pixelization and modern "
-            "GAN/transformer SR (Real-ESRGAN, SwinIR, anime SR) optimise perceptual "
-            "or continuous losses. Structure-aware pixel-art work (2026) emphasises "
-            "that continuous models violate discrete palette integrity. Quantized "
-            "generators (for example Gumbel-softmax palette models) align better with "
-            "our constraint of no new colours.",
+            "Kopf and Lischinski (SIGGRAPH 2011) build a similarity graph, planarize "
+            "crossing diagonals (curves / sparse / islands heuristics), reshape cells "
+            "via a generalized Voronoi on nodes and half-edges, then fit contour "
+            "splines. Kreuzer et al. (I3D 2015) target realtime GPU paths. Full spline "
+            "fitting yields the classic “inked” vector look; we adopt the "
+            "<b>planarization + hard ownership</b> stage and deliberately omit soft "
+            "B-spline shading so fills stay flat NES colours.",
         )
     )
-    story.append(P("h2", "2.3 Tiny learned upscalers"))
+    story.append(P("h2", "2.3 Learned upscalers"))
     story.append(
         P(
             "body",
-            "ESPCN-style networks with pixel-shuffle heads are attractive for "
-            "realtime and FPGA targets because of small parameter counts. We adopt "
-            "that footprint but replace RGB residual regression with a "
-            "<b>9-way neighbour classifier</b>, so every output texel is exactly one "
-            "of the nine colours in the local LQ neighbourhood.",
+            "ESPCN-style networks are attractive for FPGA (small parameter counts). "
+            "Photo and anime SR (Real-ESRGAN, SwinIR) optimise continuous or perceptual "
+            "losses and routinely violate discrete palettes. We tried residual RGB and "
+            "9-class neighbour classification; both are documented in Section 6 as "
+            "negative results for our product constraint.",
         )
     )
 
+    # ----- 3 -----
     story.append(P("h1", "3. System Architecture"))
-    story.append(P("body0", "The PC prototype is organised as a single process:"))
+    story.append(P("body0", "The PC prototype is a single process:"))
     story.append(
         Preformatted(
             "  NES core (SimpleNES)\n"
-            "       |  256x240 RGBA @ ~60.098 Hz\n"
+            "       |  256×240 RGBA @ ~60.098 Hz\n"
             "       v\n"
-            "  D3D11 upload  ->  scaler compute shader  ->  letterbox present\n"
+            "  D3D11 upload → scaler compute shader → integer letterbox present\n"
             "       |\n"
-            "  Modes: Nearest | Bilinear | NIS | Clarity | Smooth | Neural",
+            "  Modes: Clarity | Smooth | Contour | NIS | Nearest | Bilinear",
             s["code"],
         )
     )
@@ -378,9 +377,10 @@ def build():
         P(
             "body",
             "A custom Win32 launcher provides ROM selection (browse / drag-drop), "
-            "scale mode chips (Clarity / Smooth / Neural), and output resolution "
-            "(1080p / 1440p / 4K). Preferences persist under AppData. Gameplay is "
-            "paced to the NES NTSC rate independent of panel refresh (for example 165 Hz).",
+            "mode chips (Clarity / Smooth / Contour), and output resolution "
+            "(1080p / 1440p / 4K). Preferences persist under AppData. Presentation "
+            "uses maximum integer scale into the window with phase-locked letterboxing "
+            "(OSSC-style), so output pixels stay uniform width.",
         )
     )
     story.append(P("caption", "Table 1. Scaling modes in the current build."))
@@ -390,249 +390,242 @@ def build():
                 ["Mode", "Algorithm class", "Palette behaviour"],
                 ["Clarity", "Max integer nearest", "Exact LQ colours"],
                 ["Smooth", "xBR-sharp tips + snapExact9", "Hard neighbourhood only"],
-                ["Neural*", "TinySR 9-class (safe: xBR)", "Hard; CNN gated when unsafe"],
+                ["Contour", "Planar diagonals + shared half-planes", "Exact neighbour colours"],
                 ["NIS", "NVIDIA Image Scaling", "Continuous (reference)"],
                 ["Nearest / Bilinear", "Baselines", "Exact / blended"],
             ],
-            [2.8 * cm, 7.2 * cm, 5.5 * cm],
-        )
-    )
-    story.append(
-        P(
-            "caption",
-            "*Neural presentation uses sharp xBR when the classifier would fringe; "
-            "CNN weights remain in-tree for research.",
+            [2.6 * cm, 7.4 * cm, 5.5 * cm],
         )
     )
 
+    # ----- 4 -----
     story.append(P("h1", "4. Methods"))
-    story.append(P("h2", "4.1 Clarity - integer oracle"))
+    story.append(P("h2", "4.1 Clarity — integer oracle"))
     story.append(
         P(
             "body",
-            "Clarity selects the largest integer scale factor that fits the window, "
-            "point-samples NES texels into that canvas, and letterboxes. This is the "
-            "reference Pure look: blocky but colour-perfect. Any subsequent filter "
-            "must beat Clarity on diagonals without introducing cream.",
+            "Clarity selects the largest integer scale factor that fits the backbuffer, "
+            "point-samples NES texels into that canvas, and letterboxes. At 1080p, "
+            "NES 256×240 typically yields s=4 (1024×960); at 4K, s=9 (2304×2160). "
+            "This is the colour-perfect reference: blocky, but any better mode must "
+            "improve diagonals without inventing cream.",
         )
     )
-    story.append(P("h2", "4.2 Smooth - sharp xBR with hard snap"))
+    story.append(P("h2", "4.2 Smooth — sharp xBR with hard snap"))
     story.append(
         P(
             "body",
-            "Smooth implements a Hyllian-inspired xBR-sharp pass in HLSL. For each "
-            "output sample we evaluate edge dominance with a YUV colour distance, "
-            "restrict writes to outer tip wedges of each quadrant, apply an outline "
-            "guard on high-contrast corners, and finally snapExact9: the result is "
-            "replaced by the nearest of the nine LQ neighbourhood colours. Mid-tones "
-            "cannot survive the snap, which eliminates cream while keeping intentional "
-            "tip geometry.",
+            "Smooth implements a Hyllian-inspired xBR-sharp pass in HLSL. Edge "
+            "dominance uses YUV colour distance; writes are restricted to tip wedges; "
+            "an outline guard protects high-contrast corners; finally "
+            "<font face='Courier'>snapExact9</font> replaces the result by the nearest "
+            "of the nine LQ neighbourhood colours. Mid-tones cannot survive the snap.",
         )
     )
-    story.append(P("h2", "4.3 Neural - discrete neighbour classification"))
+    story.append(P("h2", "4.3 Contour — shared half-plane diagonals"))
     story.append(
         P(
             "body",
-            "We train a tiny convolutional network that, for each LQ pixel, predicts "
-            "a class in {A,B,C,D,E,F,G,H,I} for every subpixel of a 4x4 block "
-            "(pixel-shuffle head). The decoded colour is exactly neighbour[argmax]. "
-            "Topology:",
+            "Contour is the production answer to “sharp fills, continuous edges.” "
+            "For each output sample inside LQ cell E with fractional offsets "
+            "(f<sub>x</sub>, f<sub>y</sub>), we:",
+        )
+    )
+    for b in [
+        "Fetch the 3×3 neighbourhood A…I and test similarity with Kopf/hqx YUV "
+        "thresholds (ΔY≤48/255, ΔU≤7/255, ΔV≤6/255).",
+        "Planarize each of the four 2×2 blocks around E: keep at most one diagonal "
+        "(A–E or B–D, etc.) using curves / sparse / islands scoring when both cross.",
+        "Assign colour by a <b>global</b> half-plane on U=x+y (slash /) or V=x−y "
+        "(backslash \\), with bisectors at *.5 so the dark cell and the light cell "
+        "of a stair share the <b>same</b> edge equation.",
+        "If no 45° rule fires, apply 2:1 / 1:2 hard wedges (still exact neighbour "
+        "colours).",
+    ]:
+        story.append(P("bullet", f"• {b}"))
+    story.append(
+        P(
+            "body",
+            "Output colour is always one of A…I — never a blend. No network weights "
+            "are required at runtime.",
+        )
+    )
+    story.append(P("h2", "4.4 Why local EPX cuts still look pixelated"))
+    story.append(
+        P(
+            "body",
+            "Classic EPX paints a triangle in each cell (e.g. f<sub>x</sub>+f<sub>y</sub> "
+            "&lt; 0.5). On a long slash stair, the dark cell’s cut and the light cell’s "
+            "cut often sit on <b>parallel but offset</b> lines (different constants of "
+            "U=x+y). The visible border becomes a thick zigzag at the scale of source "
+            "pixels — still “pixelated,” even though each cut is continuous inside its "
+            "cell. Contour’s contribution is to force both sides onto one shared "
+            "bisector (e.g. U = s<sub>x</sub>+s<sub>y</sub>+0.5 and "
+            "U = s<sub>x</sub>+s<sub>y</sub>+1.5 on complementary corners), recovering "
+            "a single straight 45° interface.",
         )
     )
     story.append(
         Preformatted(
-            "  Conv 3x3, C=32, ReLU  ->  Conv 3x3, C=32, ReLU  ->  Conv 3x3, 9*4*4\n"
-            "  -> pixel_shuffle(r=4)  ->  logits (9, H*4, W*4)\n"
-            "  Parameters ~51.8k  |  Dropout2d during train  |  AdamW + wd",
+            "  / stair (keep B–D in TL of E):   if U < Us + 0.5  → colour B\n"
+            "  / stair (keep F–H in BR of E):   if U > Us + 1.5  → colour F\n"
+            "  \\ stair (keep B–F / D–H):        compare V against Vs ± 0.5\n"
+            "  Us = sx+sy,  Vs = sx−sy,  U = x+y,  V = x−y   (continuous)",
+            s["code"],
+        )
+    )
+
+    # ----- 5 -----
+    story.append(P("h1", "5. Implementation Notes"))
+    story.append(
+        P(
+            "body",
+            "Clarity, Smooth, and Contour share one compute shader "
+            "(<font face='Courier'>shaders/tiny_sr.hlsl</font>), selected by a mode "
+            "constant. Contour dispatches at destination resolution with integer "
+            "scale s from the present path. The shader is compiled at runtime with "
+            "D3DCompile (cs_5_0). The Win32 launcher maps the Contour chip to the "
+            "internal <font face='Courier'>ScaleMode::Neural</font> enum for prefs "
+            "compatibility; CLI accepts <font face='Courier'>--scale neural</font>.",
+        )
+    )
+
+    # ----- 6 -----
+    story.append(P("h1", "6. The Neural Experiment (Negative Result)"))
+    story.append(
+        P(
+            "body",
+            "Before Contour, we trained a TinySR network to predict, for each LQ "
+            "pixel, a class in {A…I} for every subpixel of a 4×4 block (pixel-shuffle "
+            "head). Decoded colour is exactly neighbour[argmax] — zero palette drift "
+            "by construction.",
+        )
+    )
+    story.append(
+        Preformatted(
+            "  Conv3×3 C=32 ReLU → Conv3×3 C=32 ReLU → Conv3×3 9·4·4\n"
+            "  → pixel_shuffle(r=4) → logits (9, H·4, W·4)   ≈ 51.8k params",
             s["code"],
         )
     )
     story.append(
         P(
             "body",
-            "Labels come from a Scale2xSFX teacher chained to 4x; each HQ pixel is "
-            "mapped to the nearest of the nine LQ neighbours (exact match preferred, "
-            "YUV distance fallback). Non-centre classes are rare (about 0.3-1% of "
-            "pixels), so training uses class-weighted cross-entropy with a large edge "
-            "multiplier (for example 32x) and early stopping on edge-class accuracy.",
+            "Labels came from a Scale2xSFX teacher chained to 4×. Non-centre classes "
+            "are rare (~0.3–1% of pixels), so training used class-weighted CE with a "
+            "large edge multiplier and edge-biased crops (CUDA, RTX 4080).",
         )
     )
-    story.append(P("h2", "4.4 Why residual RGB failed"))
-    story.append(
-        P(
-            "body",
-            "An earlier residual ESPCN (nearest + g*tanh(res)) matched teacher L1 "
-            "closely after regularisation, but with g &lt;= 0.55 could not reach full "
-            "neighbour swaps. Raising gain without discrete decoding produced soft "
-            "fringes. Critically, EPX/SFX deltas occupy much less than 1% of HQ "
-            "pixels; unmasked L1 is dominated by flat regions, so the net learns "
-            "near-zero residual. Masked residual loss improved corner agreement "
-            "(about 88% after hard snap) but stroke statistics still lagged a pure "
-            "geometric teacher.",
-        )
-    )
-
-    story.append(P("h1", "5. Training Pipeline"))
-    story.append(
-        P(
-            "body",
-            "Frames are dumped from the live emulator (--dump-frames N), converted by "
-            "build_dataset.py into LQ/HQ PNG pairs plus uint8 neighbour-index maps, "
-            "and trained with train_tinysr.py on NVIDIA CUDA (validated on GeForce "
-            "RTX 4080, PyTorch 2.11 + cu128). Export writes tinysr_weights.bin "
-            "(magic TNSR, channels, scale, then W1 B1 W2 B2 W3 B3 floats) for "
-            "StructuredBuffer load in the compute shader.",
-        )
-    )
-    story.append(P("caption", "Table 2. Classifier training configuration (final run)."))
-    story.append(
-        make_table(
-            [
-                ["Item", "Value"],
-                ["Teacher", "Scale2xSFX x2 -> 4x"],
-                ["Dataset", "~240 train / 60 val SMB frames (stride 1)"],
-                ["Crop / aug", "96x96 LQ, rot90 + flips, edge-biased crops"],
-                ["Optimiser", "AdamW, lr 1.5e-3 cosine, wd 2e-3"],
-                ["Regularisation", "Dropout2d 0.1, grad clip 1.0, patience 20"],
-                ["Batch / device", "48, CUDA GPU (no CPU offload)"],
-                ["Export", "C=32, scale=4, 9 classes, 51760 floats"],
-            ],
-            [4.5 * cm, 11.0 * cm],
-        )
-    )
-
-    story.append(P("h1", "6. Experiments and Results"))
-    story.append(
-        P(
-            "body",
-            "We evaluate on held-out SMB validation frames. Metrics: overall and "
-            "edge-only neighbour accuracy (edge = label != E), L1 vs teacher, edge-map "
-            "L1, palette drift (fraction of HQ pixels outside the 3x3 LQ set), and a "
-            "stroke-variance proxy on strong edges.",
-        )
-    )
-    story.append(
-        P("caption", "Table 3. Validation means (12-frame subset, classifier checkpoint).")
-    )
+    story.append(P("caption", "Table 2. Classifier validation (SMB hold-out, illustrative)."))
     story.append(
         make_table(
             [
                 ["Metric", "Nearest", "Neural CNN", "Teacher (SFX)"],
-                ["Neighbour acc (all)", "-", "96.4%", "100% (by def.)"],
-                ["Neighbour acc (edge)", "-", "71.8%", "100%"],
-                ["L1 vs teacher", "0.00279", "0.00810", "0"],
-                ["Edge-map L1 vs teacher", "0.0206", "0.0559", "0"],
+                ["Neighbour acc (all)", "—", "~96%", "100%"],
+                ["Neighbour acc (edge)", "—", "~72%", "100%"],
                 ["Palette drift", "0", "0", "0"],
-                ["Stroke variance proxy", "0.892", "0.939", "1.231"],
             ],
             [5.5 * cm, 3.5 * cm, 3.5 * cm, 3.5 * cm],
         )
     )
+    story.append(P("h2", "6.1 Failure modes"))
     story.append(
         P(
             "body",
-            "Palette drift is identically zero for the discrete decoder - an essential "
-            "product constraint. Edge accuracy of about 72% is meaningful but "
-            "insufficient: the remaining errors concentrate on glyph and sprite "
-            "silhouettes and are visually catastrophic (Section 7). Stroke variance of "
-            "the CNN lies between nearest and teacher, indicating partial geometric "
-            "learning.",
+            "<b>Cream.</b> Residual RGB regression underfits sparse EPX/SFX deltas; "
+            "raising gain without discrete decoding invents mid-tones.<br/>"
+            "<b>Fringes.</b> At ~72% edge accuracy, false non-E classes copy a wrong "
+            "palette entry (e.g. HUD red into a black silhouette) — multicolour static "
+            "at 4×. Tip gates and runtime fallback to Smooth mitigated symptoms but "
+            "did not beat Contour’s geometric consistency.<br/>"
+            "<b>Lesson.</b> For this medium, learn geometry (or hard-code it) rather "
+            "than continuous colour.",
         )
     )
 
-    story.append(P("h1", "7. Failure Analysis"))
-    story.append(P("h2", "7.1 Silky / cream look"))
+    # ----- 7 -----
+    story.append(P("h1", "7. Discussion"))
     story.append(
         P(
             "body",
-            "Continuous residuals and any path that averages colours across an edge "
-            "create mid-tones. Mitigation: hard snap to the LQ neighbourhood; forbid "
-            "perceptual / adversarial losses aimed at natural images.",
+            "Contour targets 45° stairs and shallow 2:1 wedges. Very irregular "
+            "silhouettes and text still benefit from Smooth’s tip logic or Clarity’s "
+            "honest blocks. At modest integer scales (s=4 at 1080p), even a "
+            "mathematically straight hard edge is a one-pixel staircase of "
+            "<i>output</i> samples — that is rasterization, not the source-pixel "
+            "zigzag Contour removes. Higher s (4K) makes continuous diagonals more "
+            "visually obvious.",
         )
     )
-    story.append(P("h2", "7.2 Exploded colours on edges"))
     story.append(
         P(
             "body",
-            "When the classifier assigns a false non-E class, the shader copies a "
-            "neighbour that may be a completely different palette entry (for example "
-            "red HUD vs black background). At 4x these errors appear as multicolour "
-            "static around letters and sprites. Weight layout verification against "
-            "PyTorch confirmed correct indexing; the fault is statistical, not "
-            "binding. Mitigations implemented: (i) strong logit margin vs centre E; "
-            "(ii) tip-only acceptance masks per quadrant; (iii) runtime presentation "
-            "fallback of Neural to sharp xBR until edge accuracy is reliable.",
-        )
-    )
-    story.append(P("h2", "7.3 Sparse teacher signal"))
-    story.append(
-        P(
-            "body",
-            "Only a fraction of a percent of HQ pixels differ from nearest under "
-            "EPX/SFX. Unweighted losses drown the diagonal signal. Class-balanced CE "
-            "and edge-biased crops help but do not yet match Smooth geometric "
-            "consistency on text.",
+            "We intentionally omit Kopf spline optimisation: curved inked contours "
+            "read as silky to many NES players. Hard half-planes keep the look "
+            "closer to “drawn with exact colours” than “vectorized illustration.”",
         )
     )
 
+    # ----- 8 -----
     story.append(P("h1", "8. FPGA and Future Work"))
     story.append(
         P(
             "body",
-            "The classifier parameter count and 3x3 conv structure map naturally to "
-            "streaming FPGA pipelines (line buffers + MAC arrays). Intended lab board: "
-            "DE10-Nano for Clarity/TinySR; larger devices if transformer Regen is "
-            "pursued on PC first. Next research steps:",
+            "Contour maps to a streaming pipeline: line buffers for a 3×3 window, "
+            "YUV similarity comparators, four planarDiag units, and a few plane "
+            "tests per output sample — no DRAM weight traffic. Clarity is already "
+            "trivial on FPGA. Intended evaluation board: DE10-Nano for Clarity/"
+            "Contour; larger devices only if a learned tip classifier returns.",
         )
     )
     for b in [
-        "Tip-only label generation (supervise only xBR/SFX tip loci).",
-        "Two-head model: edge vs flat binary gate + 8-way direction on tips.",
-        "Multi-game dumps to reduce SMB-specific overfitting.",
-        "Distill Smooth xBR decisions as an alternative teacher to SFX.",
-        "On-device int8 export and cycle-accurate RTL for the stem convolutions.",
+        "Tighten Contour on shallow non-45° hills and sprite silhouettes.",
+        "Optional NES PAR (8:7) toggle for CRT-accurate width.",
+        "Tip-only learned gate distilled from Smooth, if Contour gaps remain.",
+        "Int8 / cycle-accurate RTL for the Contour datapath.",
+        "Multi-game visual QA sets beyond SMB.",
     ]:
-        story.append(P("bullet", f"- {b}"))
+        story.append(P("bullet", f"• {b}"))
 
+    # ----- 9 -----
     story.append(P("h1", "9. Conclusion"))
     story.append(
         P(
             "body",
-            "RetroNNetScaler demonstrates a complete path from NES emulation to 4K "
-            "presentation with explicit respect for discrete palettes. Sharp xBR with "
-            "neighbourhood snap currently delivers the best realtime diagonals without "
-            "silk. A FPGA-sized neighbour-classification CNN achieves zero palette "
-            "drift and partial edge learning, but unconstrained argmax decoding "
-            "fringes until tip gating and higher edge accuracy are achieved. The "
-            "project central lesson is methodological: for pixel art, "
-            "<b>discretise the output domain first</b>, then learn; continuous SR "
-            "objectives fight the medium.",
+            "RetroNNetScaler is a complete path from NES emulation to 4K presentation "
+            "with explicit respect for discrete palettes. Clarity is the honest "
+            "oracle; Smooth improves tips without cream; Contour makes long diagonals "
+            "share one geometric edge instead of EPX’s offset zigzags. A FPGA-sized "
+            "neighbour CNN achieved zero palette drift but fringed until abandoned "
+            "for Contour at runtime. The project’s central lesson: "
+            "<b>discretise first</b>; for continuous edges without silk, make both "
+            "sides of the stair agree on the same half-plane.",
         )
     )
 
+    # ----- Refs -----
     story.append(P("h1", "References"))
     refs = [
-        "[1] A. Mazzoleni, Scale2x / Scale3x, scale2x.it - AdvMAME pixel-art scalers.",
-        "[2] Scale2xSFX / Scale3xSFX proposals (libretro community; ScaleNx implementations).",
-        "[3] H. Hyllian et al., xBR / xBRZ family - edge-directed pixel-art upscaling.",
+        "[1] A. Mazzoleni, Scale2x / Scale3x — AdvMAME pixel-art scalers.",
+        "[2] Scale2xSFX / Scale3xSFX (libretro / ScaleNx community implementations).",
+        "[3] H. Hyllian et al., xBR / xBRZ — edge-directed pixel-art upscaling.",
         "[4] J. Kopf and D. Lischinski, Depixelizing Pixel Art, ACM TOG (SIGGRAPH), 2011.",
-        "[5] W. Shi et al., Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network (ESPCN), CVPR, 2016.",
-        "[6] Structure-Aware Pixel Art Scaling via Block Size Detection, Appl. Sci., 2026.",
-        "[7] SD-piXL: Generating Low-Resolution Quantized Imagery via Score Distillation, 2024.",
-        "[8] SimpleNES - github.com/amhndu/SimpleNES (NES emulator core).",
-        "[9] NVIDIA Image Scaling (NIS) SDK - spatial upscaler reference.",
-        "[10] RetroNNetScaler source - github.com/amirsdream/RetroNNetScaler, 2026.",
+        "[5] F. Kreuzer, J. Kopf, M. Wimmer, Depixelizing Pixel Art in Real-Time, I3D, 2015.",
+        "[6] W. Shi et al., ESPCN — Real-Time Single Image and Video Super-Resolution, CVPR, 2016.",
+        "[7] SimpleNES — github.com/amhndu/SimpleNES.",
+        "[8] NVIDIA Image Scaling (NIS) SDK — spatial upscaler reference.",
+        "[9] RetroNNetScaler — github.com/amirsdream/RetroNNetScaler, 2026.",
     ]
     for r in refs:
         story.append(P("ref", r))
 
-    story.append(Spacer(1, 10 * mm))
+    story.append(Spacer(1, 8 * mm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=s["rule"], spaceAfter=8))
     story.append(
         P(
             "meta",
-            "Correspondence via the project repository. ROM dumps used for training "
-            "must be legally obtained by the user; ROMs are not redistributed.",
+            "Correspondence via the project repository. Training dumps must use "
+            "legally obtained ROMs; ROMs are not redistributed with the project.",
         )
     )
 

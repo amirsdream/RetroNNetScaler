@@ -1,0 +1,404 @@
+% RetroNNetScaler --- IEEEtran conference paper
+% Build:
+%   pdflatex retronnetscaler.tex
+%   bibtex retronnetscaler
+%   pdflatex retronnetscaler.tex
+%   pdflatex retronnetscaler.tex
+\documentclass[conference]{IEEEtran}
+
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathtools}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{hyperref}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  aboveskip=0.4em,
+  belowskip=0.4em,
+  frame=single,
+  rulecolor=\color{black!30},
+}
+
+\begin{document}
+
+\title{RetroNNetScaler: Contour Upscaling for Hard-Palette NES Pixel Art}
+
+\author{\IEEEauthorblockN{RetroNNetScaler Project}
+\IEEEauthorblockA{\textit{Technical Report}\\
+\texttt{https://github.com/amirsdream/RetroNNetScaler}\\
+August 2026}
+}
+
+\maketitle
+
+\begin{abstract}
+Upscaling palette-limited Nintendo Entertainment System (NES) frames for modern
+4K displays differs fundamentally from natural-image super-resolution.
+Continuous filters and photograph-oriented networks invent mid-tone ``cream''
+colours and silky outlines that erase the aliased aesthetic of 8-bit games.
+We present \textbf{RetroNNetScaler}, a Windows realtime pipeline that embeds a
+NES core (SimpleNES), presents frames through Direct3D~11, and offers three
+hard-palette production modes: \emph{Clarity} (maximum integer nearest-neighbour),
+\emph{Smooth} (Hyllian-style xBR-sharp tip wedges with neighbourhood colour snap),
+and \emph{Contour} (Kopf-style planarized diagonals with \emph{shared global
+half-planes} so that long $45^\circ$ stairs become a single continuous edge).
+We further document a TinySR neighbour-classification CNN ($\approx\!52$k
+weights) trained against Scale2xSFX teachers: palette drift can be forced to
+zero by construction, yet unconstrained decoding produces multicolour edge
+fringes. The central methodological result is that one should
+\textbf{discretise the output domain first}; for continuous diagonals without
+cream, adjacent cells must agree on one geometric edge equation rather than
+regress RGB. Contour requires no learned weights at runtime and maps naturally
+to an FPGA streaming datapath.
+\end{abstract}
+
+\begin{IEEEkeywords}
+pixel-art upscaling, NES, Contour, Kopf--Lischinski, xBR, hard palette,
+realtime D3D11, discrete super-resolution, FPGA.
+\end{IEEEkeywords}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Classic console graphics were authored on a square pixel lattice with a small
+discrete palette. When those frames are shown on a $3840{\times}2160$ panel,
+naive bilinear or bicubic filters blur edges and invent colours that never
+existed in the ROM. Deep super-resolution models trained for photographs or
+anime with continuous losses tend to produce a \emph{silky} look: soft
+outlines, chroma bleed, and palette drift. For retro enthusiasts and
+preservationists, that look is a regression rather than an improvement.
+
+Rule-based pixel-art scalers such as EPX/Scale2x, Scale2xSFX, HQX, and
+xBR/xBRZ address diagonals by \emph{copying} existing neighbour colours rather
+than interpolating~\cite{mazzoleni,sfx,hyllian}. Kopf and Lischinski
+depixelization goes further toward resolution-independent
+vectors~\cite{kopf2011}, which many players perceive as too smooth for
+classic NES draw. Our product goal is narrower: hard colours (no mid-tone
+cream); cleaner, continuous $45^\circ$ diagonals; realtime 4K presentation;
+and a path toward FPGA implementation.
+
+This paper documents the RetroNNetScaler prototype: system architecture
+(Section~\ref{sec:arch}), Clarity / Smooth / Contour algorithms
+(Section~\ref{sec:methods}), the shared half-plane insight that fixes EPX
+zigzags (Section~\ref{sec:epx}), implementation notes
+(Section~\ref{sec:impl}), the TinySR CNN negative result
+(Section~\ref{sec:neural}), discussion (Section~\ref{sec:discuss}), and an
+FPGA-oriented roadmap (Section~\ref{sec:fpga}).
+
+% ---------------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Classical Pixel-Art Scalers}
+EPX/Scale2x expands each pixel into a $2{\times}2$ block using equality tests
+on the $3{\times}3$ neighbourhood and never invents colours~\cite{mazzoleni}.
+Scale2xSFX (and Scale3xSFX) refine diagonal decisions with wider support and
+reduce hollow-diamond artefacts~\cite{sfx}. xBR and xBRZ detect edges with
+weighted colour distances (often in YUV) and write tip wedges; Hyllian-style
+sharp variants avoid blending~\cite{hyllian}. These methods remain the gold
+standard for a hard-palette look.
+
+\subsection{Depixelization and Continuous SR}
+Kopf and Lischinski~\cite{kopf2011} build a similarity graph, planarize
+crossing diagonals with curves / sparse / islands heuristics, reshape cells
+via a generalized Voronoi diagram on nodes and half-edges, then fit contour
+splines. Kreuzer \emph{et~al.}~\cite{kreuzer2015} target realtime GPU
+paths. Full spline fitting yields the classic ``inked'' vector look; we adopt
+the \emph{planarization + hard ownership} stage and deliberately omit soft
+B-spline shading so fills stay flat NES colours.
+
+Deep unsupervised pixelization and modern GAN/transformer SR (e.g., Real-ESRGAN,
+SwinIR) optimise perceptual or continuous losses and routinely violate discrete
+palette integrity. ESPCN-style networks~\cite{shi2016} are attractive for
+FPGA targets because of small parameter counts; we adopt that footprint in
+Section~\ref{sec:neural} but replace RGB residual regression with a 9-way
+neighbour classifier.
+
+% ---------------------------------------------------------------------------
+\section{System Architecture}
+\label{sec:arch}
+
+The PC prototype is organised as a single process:
+\begin{lstlisting}
+NES core (SimpleNES)
+     |  256 x 240 RGBA @ ~60.098 Hz
+     v
+D3D11 upload -> scaler CS -> integer letterbox present
+     |
+Modes: Clarity | Smooth | Contour | NIS | Nearest | Bilinear
+\end{lstlisting}
+
+A custom Win32 launcher provides ROM selection (browse / drag-and-drop), mode
+chips (Clarity / Smooth / Contour), and output resolution ($1080$p / $1440$p /
+$4$K). Preferences persist under AppData. Gameplay is paced to the NES NTSC
+rate independent of panel refresh. Presentation uses the maximum integer scale
+factor that fits the backbuffer, with phase-locked letterboxing (OSSC-style),
+so output pixels remain uniform width~\cite{bestupscale}.
+
+\begin{table}[t]
+  \caption{Scaling modes in the current build.}
+  \label{tab:modes}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}p{1.35cm}p{3.1cm}p{2.7cm}@{}}
+    \toprule
+    \textbf{Mode} & \textbf{Algorithm} & \textbf{Palette} \\
+    \midrule
+    Clarity & Max integer nearest & Exact LQ \\
+    Smooth  & xBR-sharp + snap & Hard 3$\times$3 \\
+    Contour & Shared half-planes & Exact neighbour \\
+    NIS     & NVIDIA Image Scaling & Continuous \\
+    Nearest / Bilinear & Baselines & Exact / blend \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Clarity: Integer Oracle}
+\label{sec:clarity}
+Clarity selects
+\begin{equation}
+  s = \min\bigl(\lfloor W/w_{\mathrm{src}}\rfloor,\;
+                 \lfloor H/h_{\mathrm{src}}\rfloor\bigr),
+\end{equation}
+point-samples NES texels into a canvas of size
+$(w_{\mathrm{src}}\,s)\times(h_{\mathrm{src}}\,s)$, and letterboxes into the
+backbuffer. At $1080$p, NES $256{\times}240$ typically yields $s{=}4$
+($1024{\times}960$); at $4$K, $s{=}9$ ($2304{\times}2160$). Clarity is the
+colour-perfect reference: blocky, but any subsequent filter must improve
+diagonals without introducing cream.
+
+\subsection{Smooth: Sharp xBR with Hard Snap}
+\label{sec:smooth}
+Smooth implements a Hyllian-inspired xBR-sharp pass in HLSL. For each output
+sample we evaluate edge dominance with a YUV colour distance, restrict writes
+to outer tip wedges of each quadrant, apply an outline guard on high-contrast
+corners, and finally apply \texttt{snapExact9}: the result is replaced by the
+nearest of the nine low-resolution (LQ) neighbourhood colours
+$\{A,\ldots,I\}$. Mid-tones cannot survive the snap, which eliminates cream
+while keeping intentional tip geometry.
+
+\subsection{Contour: Shared Half-Plane Diagonals}
+\label{sec:contour}
+Contour is the production answer to ``sharp fills, continuous edges.'' For each
+output sample inside LQ cell $E$ at integer coordinates $(s_x,s_y)$ with
+fractional offsets $(f_x,f_y)\in[0,1)^2$, let
+\begin{equation}
+  \mathbf{p} = (s_x+f_x,\; s_y+f_y),\quad
+  U = p_x + p_y,\quad
+  V = p_x - p_y.
+\end{equation}
+The algorithm proceeds as follows:
+\begin{enumerate}
+  \item Fetch the $3{\times}3$ neighbourhood $A{\ldots}I$ and test similarity
+        with Kopf/hqx YUV thresholds~\cite{kopf2011}:
+        $|\Delta Y|\le 48/255$, $|\Delta U|\le 7/255$, $|\Delta V|\le 6/255$.
+  \item Planarize each of the four $2{\times}2$ blocks around $E$
+        (Algorithm~\ref{alg:planar}): keep at most one diagonal
+        ($A$--$E$ or $B$--$D$, etc.), using a local curves / sparse / islands
+        score when both diagonals cross.
+  \item Assign colour by a \textbf{global} half-plane on $U$ (slash $/$) or
+        $V$ (backslash $\backslash$), with bisectors at half-integers so the
+        dark cell and the light cell of a stair share the \emph{same} edge
+        equation (Section~\ref{sec:epx}).
+  \item If no $45^\circ$ rule fires, apply $2{:}1$ / $1{:}2$ hard wedges
+        (still exact neighbour colours).
+\end{enumerate}
+The output colour is always one of $A{\ldots}I$---never a blend. No network
+weights are required at runtime.
+
+\begin{algorithm}[t]
+\caption{Planar diagonal selection in a $2{\times}2$ block.}
+\label{alg:planar}
+\begin{algorithmic}[1]
+\REQUIRE colours $a,b,d,e$ of
+$\bigl[\begin{smallmatrix}a&b\\d&e\end{smallmatrix}\bigr]$
+\ENSURE $0$ (none), $1$ (keep $a$--$e$), or $2$ (keep $b$--$d$)
+\STATE $ae \leftarrow \mathrm{Similar}(a,e)$;\;
+       $bd \leftarrow \mathrm{Similar}(b,d)$
+\IF{$\neg ae \wedge \neg bd$}
+  \RETURN $0$
+\ENDIF
+\IF{all four cardinal edges similar}
+  \RETURN $0$ \COMMENT{fully connected shade}
+\ENDIF
+\IF{$ae \wedge \neg bd$}
+  \RETURN $1$
+\ENDIF
+\IF{$bd \wedge \neg ae$}
+  \RETURN $2$
+\ENDIF
+\IF{any cardinal similar}
+  \RETURN $0$ \COMMENT{drop crossing diagonals}
+\ENDIF
+\STATE score both diagonals (curves / sparse / islands)
+\RETURN higher-scoring diagonal, or $0$ on tie
+\end{algorithmic}
+\end{algorithm}
+
+% ---------------------------------------------------------------------------
+\section{Why Local EPX Cuts Still Look Pixelated}
+\label{sec:epx}
+
+Classic EPX paints a triangle inside each cell, e.g.,
+$f_x+f_y < \tfrac12$ for a top-left cut. On a long slash stair, the dark
+cell's cut and the light cell's cut often sit on \textbf{parallel but offset}
+lines---different constants of $U=x+y$. The visible border becomes a thick
+zigzag at the scale of \emph{source} pixels: still ``pixelated,'' even though
+each cut is continuous inside its cell.
+
+Contour forces both sides onto one shared bisector. With
+$U_s = s_x+s_y$ and $V_s = s_x-s_y$:
+\begin{align}
+  \text{TL keep }B\text{--}D:&\quad
+    U < U_s + \tfrac12 \;\Rightarrow\; B,\\
+  \text{BR keep }F\text{--}H:&\quad
+    U > U_s + \tfrac32 \;\Rightarrow\; F,\\
+  \text{TR keep }B\text{--}F:&\quad
+    V > V_s + \tfrac12 \;\Rightarrow\; B,\\
+  \text{BL keep }D\text{--}H:&\quad
+    V < V_s - \tfrac12 \;\Rightarrow\; D.
+\end{align}
+Complementary corners of a stair therefore agree on a single straight
+$45^\circ$ interface (e.g., $U = U_s+\tfrac12$ meeting
+$U = U_s+\tfrac32$ from the adjacent cell), recovering continuity without
+blending.
+
+% ---------------------------------------------------------------------------
+\section{Implementation Notes}
+\label{sec:impl}
+
+Clarity, Smooth, and Contour share one compute shader
+(\texttt{shaders/tiny\_sr.hlsl}), selected by a mode constant. Contour
+dispatches at destination resolution with integer scale $s$ from the present
+path. The shader is compiled at runtime with \texttt{D3DCompile}
+(\texttt{cs\_5\_0}). The Win32 launcher maps the Contour chip to the internal
+\texttt{ScaleMode::Neural} enum for preferences compatibility; the CLI accepts
+\texttt{--scale neural}.
+
+Integer phase lock follows the practice summarised in the project notes:
+content size exactly $w_{\mathrm{src}}s \times h_{\mathrm{src}}s$,
+integer-centred viewport, point sampling after the scaler, and optional
+one-pixel phase nudges~\cite{bestupscale}.
+
+% ---------------------------------------------------------------------------
+\section{The Neural Experiment (Negative Result)}
+\label{sec:neural}
+
+Before Contour, we trained a TinySR network to predict, for each LQ pixel, a
+class in $\{A,\ldots,I\}$ for every subpixel of a $4{\times}4$ block
+(pixel-shuffle head). Decoded colour is exactly
+$\mathrm{neighbour}[\arg\max]$---zero palette drift by construction.
+\begin{lstlisting}
+Conv3x3 C=32 ReLU -> Conv3x3 C=32 ReLU
+  -> Conv3x3 9*4*4 -> pixel_shuffle(r=4)
+  -> logits (9,H*4,W*4)   ~51.8k params
+\end{lstlisting}
+Labels came from a Scale2xSFX teacher chained to $4{\times}$. Non-centre
+classes are rare ($\approx\!0.3$--$1\%$ of pixels), so training used
+class-weighted cross-entropy with a large edge multiplier, edge-biased crops,
+AdamW, and early stopping on edge-class accuracy (CUDA, GeForce RTX~4080).
+
+\begin{table}[t]
+  \caption{Classifier validation on Super Mario Bros.\ hold-out frames
+  (illustrative means).}
+  \label{tab:cnn}
+  \centering
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    \textbf{Metric} & \textbf{NN} & \textbf{CNN} & \textbf{SFX} \\
+    \midrule
+    Acc.\ (all)  & --- & $\approx 96\%$ & $100\%$ \\
+    Acc.\ (edge) & --- & $\approx 72\%$ & $100\%$ \\
+    Palette drift & $0$ & $0$ & $0$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Failure Modes}
+\paragraph{Cream.}
+Residual RGB regression underfits sparse EPX/SFX deltas; raising gain without
+discrete decoding invents mid-tones.
+
+\paragraph{Fringes.}
+At roughly $72\%$ edge accuracy, false non-$E$ classes copy a wrong palette
+entry (e.g., HUD red into a black silhouette), appearing as multicolour static
+at $4{\times}$. Tip gates and a runtime fallback to Smooth mitigated symptoms
+but did not beat Contour's geometric consistency.
+
+\paragraph{Lesson.}
+For this medium, learn (or hard-code) \emph{geometry} rather than continuous
+colour. Sparse teacher signal---only a fraction of a percent of HQ pixels
+differ from nearest under EPX/SFX---makes unweighted continuous losses
+dominated by flat regions.
+
+% ---------------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discuss}
+
+Contour targets $45^\circ$ stairs and shallow $2{:}1$ wedges. Very irregular
+silhouettes and text may still benefit from Smooth's tip logic or Clarity's
+honest blocks. At modest integer scales ($s{=}4$ at $1080$p), even a
+mathematically straight hard edge is a one-pixel staircase of \emph{output}
+samples; that is rasterization, not the source-pixel zigzag Contour removes.
+Higher $s$ (4K) makes continuous diagonals more visually obvious.
+
+We intentionally omit Kopf spline optimisation: curved inked contours read as
+silky to many NES players. Hard half-planes keep the look closer to ``drawn
+with exact colours'' than ``vectorized illustration.''
+
+% ---------------------------------------------------------------------------
+\section{FPGA and Future Work}
+\label{sec:fpga}
+
+Contour maps to a streaming pipeline: line buffers for a $3{\times}3$ window,
+YUV similarity comparators, four planar-diagonal units, and a few plane tests
+per output sample---no DRAM weight traffic. Clarity is already trivial on
+FPGA. Intended evaluation board: DE10-Nano for Clarity/Contour; larger devices
+only if a learned tip classifier returns.
+
+Future work includes: tightening Contour on shallow non-$45^\circ$ hills and
+sprite silhouettes; an optional NES PAR ($8{:}7$) toggle for CRT-accurate
+width; a tip-only learned gate distilled from Smooth if Contour gaps remain;
+int8 / cycle-accurate RTL for the Contour datapath; and multi-game visual QA
+beyond Super Mario Bros.
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+RetroNNetScaler is a complete path from NES emulation to 4K presentation with
+explicit respect for discrete palettes. Clarity is the honest oracle; Smooth
+improves tips without cream; Contour makes long diagonals share one geometric
+edge instead of EPX's offset zigzags. A FPGA-sized neighbour CNN achieved zero
+palette drift but fringed until abandoned for Contour at runtime. The project's
+central lesson is: \textbf{discretise first}; for continuous edges without
+silk, make both sides of the stair agree on the same half-plane.
+
+\section*{Acknowledgment}
+Training and validation dumps must use legally obtained ROMs; ROMs are not
+redistributed with the project.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

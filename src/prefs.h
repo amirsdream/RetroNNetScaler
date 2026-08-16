@@ -11,7 +11,7 @@ enum class ScaleMode
     NIS,
     TinySR, // Clarity: pure integer nearest
     Smooth, // Hyllian xBR-sharp (clean diagonals)
-    Neural, // Trained TinySR CNN (4x residual)
+    Neural, // Contour: hard-palette fills + continuous geometric diagonals
     DLSS,   // falls back to NIS until Streamline linked
 };
 

@@ -23,7 +23,7 @@ const char* scaleModeName(ScaleMode mode)
     case ScaleMode::Smooth:
         return "Smooth(sharp)";
     case ScaleMode::Neural:
-        return "Neural(sharp)"; // CNN fringe-safe: sharp xBR until classifier is reliable
+        return "Contour"; // hard fills + continuous diagonals (no cream)
     case ScaleMode::DLSS:
         return "DLSS(NIS)";
     }

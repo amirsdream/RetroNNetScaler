@@ -20,7 +20,7 @@ public:
     ~TinySrUpscaler();
 
     bool init(ID3D11Device* device, ID3D11DeviceContext* context, const std::string& shaderPath);
-    // mode: 0 = Clarity, 1 = Smooth xBR-sharp, 2 = Neural TinySR
+    // mode: 0 = Clarity, 1 = Smooth xBR-sharp, 2 = Contour (hard + continuous edges)
     void dispatch(ID3D11ShaderResourceView* input,
                   ID3D11UnorderedAccessView* output,
                   std::uint32_t srcW,

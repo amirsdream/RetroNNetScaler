@@ -158,7 +158,7 @@ RECT resChip(int i)
 
 const wchar_t* modeChipName(int i)
 {
-    static const wchar_t* n[] = { L"Clarity", L"Smooth", L"Neural" };
+    static const wchar_t* n[] = { L"Clarity", L"Smooth", L"Contour" };
     return n[i];
 }
 
@@ -267,7 +267,7 @@ void paint(HWND hwnd)
     drawText(dc,
              g_ui->fontHead,
              tagRect(),
-             L"Sharp pixels. Clean diagonals. Hard palette.",
+             L"Hard fills. Continuous diagonals. No cream.",
              RGB(180, 150, 110),
              DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
