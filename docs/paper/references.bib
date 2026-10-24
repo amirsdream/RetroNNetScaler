@@ -1,76 +1,102 @@
-@misc{mazzoleni,
+% Verified academic / archival references only.
+% Do not add forum posts, unverified ``et al.'' authors, or self-docs.
+
+@article{thomas1999epx,
+  author  = {Thomas, Kas},
+  title   = {Fast Blit Strategies: A {Mac} Programmer's Guide},
+  journal = {MacTech},
+  year    = {1999},
+  volume  = {15},
+  number  = {6},
+  note    = {Documents Eric Johnston's EPX pixel-doubling rule (LucasArts, ca.\ 1992)}
+}
+
+@misc{mazzoleni2001scale2x,
   author       = {Mazzoleni, Andrea},
-  title        = {{Scale2x} / {Scale3x}},
-  howpublished = {\url{http://www.scale2x.it/}},
-  note         = {AdvMAME pixel-art scalers}
-}
-
-@misc{sfx,
-  author       = {{libretro / ScaleNx community}},
-  title        = {{Scale2xSFX} / {Scale3xSFX}},
-  howpublished = {Community implementations},
-  year         = {2010}
-}
-
-@misc{hyllian,
-  author       = {Hyllian and others},
-  title        = {{xBR} / {xBRZ}: Edge-Directed Pixel-Art Upscaling},
-  howpublished = {RetroArch / libretro common-shaders},
-  year         = {2012}
+  title        = {{Scale2x}},
+  year         = {2001},
+  howpublished = {AdvanceMAME project documentation},
+  url          = {https://www.scale2x.it},
+  note         = {Archival primary source for Scale2x/Scale3x; functionally equivalent to EPX}
 }
 
 @article{kopf2011,
   author  = {Kopf, Johannes and Lischinski, Dani},
   title   = {Depixelizing Pixel Art},
-  journal = {ACM Transactions on Graphics (Proceedings of SIGGRAPH)},
+  journal = {ACM Transactions on Graphics},
   year    = {2011},
   volume  = {30},
   number  = {4},
   pages   = {99:1--99:8},
-  doi     = {10.1145/2010324.1964994}
+  doi     = {10.1145/1964921.1964994}
 }
 
 @inproceedings{kreuzer2015,
   author    = {Kreuzer, Felix and Kopf, Johannes and Wimmer, Michael},
   title     = {Depixelizing Pixel Art in Real-Time},
-  booktitle = {Proceedings of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (I3D)},
+  booktitle = {Proceedings of the 19th Symposium on Interactive 3D Graphics and Games},
   year      = {2015},
-  note      = {Poster / realtime GPU path}
+  pages     = {130},
+  publisher = {ACM},
+  doi       = {10.1145/2699276.2721395},
+  note      = {I3D 2015 poster / extended abstract}
 }
 
 @inproceedings{shi2016,
   author    = {Shi, Wenzhe and Caballero, Jose and Husz{\'a}r, Ferenc and Totz, Johannes and Aitken, Andrew P. and Bishop, Rob and Rueckert, Daniel and Wang, Zehan},
   title     = {Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network},
-  booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  booktitle = {Proceedings of the {IEEE} Conference on Computer Vision and Pattern Recognition ({CVPR})},
   year      = {2016},
   pages     = {1874--1883},
   doi       = {10.1109/CVPR.2016.207}
 }
 
-@misc{simplenes,
-  author       = {Amhndu and contributors},
-  title        = {{SimpleNES}},
-  howpublished = {\url{https://github.com/amhndu/SimpleNES}},
-  year         = {2016}
+@inproceedings{wang2018esrgan,
+  author    = {Wang, Xintao and Yu, Ke and Wu, Shixiang and Gu, Jinjin and Liu, Yihao and Dong, Chao and Qiao, Yu and Loy, Chen Change},
+  title     = {{ESRGAN}: Enhanced Super-Resolution Generative Adversarial Networks},
+  booktitle = {Computer Vision --- {ECCV} 2018 Workshops},
+  year      = {2019},
+  pages     = {63--79},
+  publisher = {Springer},
+  doi       = {10.1007/978-3-030-11021-5_5}
 }
 
-@misc{nis,
-  author       = {{NVIDIA}},
-  title        = {{NVIDIA Image Scaling (NIS) SDK}},
-  howpublished = {Spatial upscaler reference},
-  year         = {2021}
+@inproceedings{wang2021realesrgan,
+  author    = {Wang, Xintao and Xie, Liangbin and Dong, Chao and Shan, Ying},
+  title     = {{Real-{ESRGAN}}: Training Real-World Blind Super-Resolution with Pure Synthetic Data},
+  booktitle = {Proceedings of the {IEEE}/{CVF} International Conference on Computer Vision Workshops ({ICCVW})},
+  year      = {2021},
+  pages     = {1905--1914},
+  doi       = {10.1109/ICCVW54120.2021.00217}
 }
 
-@misc{retronnet,
-  author       = {{RetroNNetScaler Project}},
-  title        = {{RetroNNetScaler}: Hard-Palette Realtime Upscaling for {NES}},
-  howpublished = {\url{https://github.com/amirsdream/RetroNNetScaler}},
-  year         = {2026}
+@inproceedings{liang2021swinir,
+  author    = {Liang, Jingyun and Cao, Jiezhang and Sun, Guolei and Zhang, Kai and Van Gool, Luc and Timofte, Radu},
+  title     = {{SwinIR}: Image Restoration Using Swin Transformer},
+  booktitle = {Proceedings of the {IEEE}/{CVF} International Conference on Computer Vision Workshops ({ICCVW})},
+  year      = {2021},
+  pages     = {1833--1844},
+  doi       = {10.1109/ICCVW54120.2021.00210}
 }
 
-@misc{bestupscale,
-  author       = {{RetroNNetScaler Project}},
-  title        = {Best Practices: Retro Pixel Art to {4K}},
-  howpublished = {Project documentation (\texttt{docs/BEST\_UPSCALE.md})},
-  year         = {2026}
+@article{stasik2019pixel,
+  author  = {Stasik, Pawe{\l} M. and Balcerek, Julian},
+  title   = {Extensible Implementation of Reliable Pixel Art Interpolation},
+  journal = {Foundations of Computing and Decision Sciences},
+  year    = {2019},
+  volume  = {44},
+  number  = {2},
+  pages   = {213--239},
+  doi     = {10.2478/fcds-2019-0011}
+}
+
+@article{seo2026structure,
+  author  = {Seo, Jun Won and Lee, Jun Won and Lee, Jong Hyuck and Kim, Jun Beom and Jung, Jin-Woo},
+  title   = {Structure-Aware Pixel Art Scaling via Block Size Detection},
+  journal = {Applied Sciences},
+  year    = {2026},
+  volume  = {16},
+  number  = {5},
+  pages   = {2314},
+  doi     = {10.3390/app16052314}
 }
