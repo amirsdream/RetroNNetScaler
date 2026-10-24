@@ -13,6 +13,7 @@ public:
 
     Byte readCHR(Address addr);
     void writeCHR(Address addr, Byte value);
+    void state(StateIO& s) { s.pod(m_selectCHR); }
 
 private:
     bool    m_oneBank;

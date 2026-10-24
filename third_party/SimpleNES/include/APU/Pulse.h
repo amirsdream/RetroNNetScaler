@@ -41,6 +41,14 @@ struct Pulse
     void  clock();
 
     Byte  sample() const;
+    void  state(StateIO& s)
+    {
+        volume.state(s);
+        length_counter.state(s);
+        s.pod(seq_idx); s.pod(seq_type); s.pod(period);
+        sequencer.state(s);
+        sweep.state(s);
+    }
 };
 
 }

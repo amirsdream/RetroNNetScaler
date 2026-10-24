@@ -1,6 +1,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 #include "APU/APU.h"
+#include "State.h"
 #include "Cartridge.h"
 #include "Controller.h"
 #include "Mapper.h"
@@ -42,6 +43,11 @@ public:
     void        write(Address addr, Byte value);
     bool        setMapper(Mapper* mapper);
     const Byte* getPagePtr(Byte page);
+    void        state(StateIO& s)
+    {
+        s.bytes(m_RAM);
+        s.bytes(m_extRAM);
+    }
 
 private:
     std::vector<Byte>         m_RAM;

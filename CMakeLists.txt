@@ -69,4 +69,16 @@ add_custom_command(TARGET 4kscaler POST_BUILD
         $<TARGET_FILE_DIR:4kscaler>/shaders/tinysr_weights.bin
 )
 
+# Headless core driven by the Electron UI (ui/) over stdin/stdout. Portable.
+add_executable(4kscaler-core
+    src/core_main.cpp
+    src/nes_host.cpp
+)
+target_include_directories(4kscaler-core PRIVATE ${CMAKE_SOURCE_DIR}/src)
+find_package(Threads REQUIRED)
+target_link_libraries(4kscaler-core PRIVATE simplenes Threads::Threads ${CMAKE_DL_LIBS})
+if(MINGW)
+    target_link_options(4kscaler-core PRIVATE -static-libgcc -static-libstdc++)
+endif()
+
 install(TARGETS 4kscaler RUNTIME DESTINATION bin)

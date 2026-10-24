@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'">
+  <title>RetroNNetScaler</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Title bar + menu bar -->
+  <header id="titlebar">
+    <div class="tb-brand"><span class="tb-logo"></span>RetroNNetScaler</div>
+    <nav id="menubar" role="menubar"></nav>
+    <div class="tb-drag"><span id="tb-title"></span></div>
+  </header>
+
+  <div id="shell">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <nav class="side-nav">
+        <button data-page="home" class="nav-item"><i data-icon="home"></i><span>Home</span></button>
+        <button data-page="library" class="nav-item"><i data-icon="grid"></i><span>Library</span><b id="nav-count"></b></button>
+        <button data-page="favorites" class="nav-item"><i data-icon="star"></i><span>Favorites</span></button>
+        <button data-page="recent" class="nav-item"><i data-icon="clock"></i><span>Recently Played</span></button>
+      </nav>
+      <div class="side-section">Systems</div>
+      <nav class="side-nav">
+        <button class="nav-item static"><i data-icon="gamepad"></i><span>Nintendo NES</span></button>
+      </nav>
+      <div class="side-spacer"></div>
+      <nav class="side-nav">
+        <button data-page="settings" class="nav-item"><i data-icon="sliders"></i><span>Settings</span></button>
+        <button id="side-collapse" class="nav-item" title="Collapse sidebar (Ctrl+B)"><i data-icon="sidebar"></i><span>Collapse</span></button>
+      </nav>
+    </aside>
+
+    <main id="content">
+      <!-- Home -->
+      <section class="page" data-page="home">
+        <div id="hero" class="hero"></div>
+        <div class="shelf" id="shelf-recent">
+          <div class="shelf-head"><h2>Jump back in</h2><div class="shelf-nav"><button class="link" data-goto="recent">See all<i data-icon="chevron" data-size="16"></i></button><button class="shelf-arrow" data-dir="-1" title="Scroll left"><i data-icon="chevronLeft" data-size="16"></i></button><button class="shelf-arrow" data-dir="1" title="Scroll right"><i data-icon="chevron" data-size="16"></i></button></div></div>
+          <div class="row-scroll"></div>
+        </div>
+        <div class="shelf" id="shelf-fav">
+          <div class="shelf-head"><h2>Favorites</h2><div class="shelf-nav"><button class="link" data-goto="favorites">See all<i data-icon="chevron" data-size="16"></i></button><button class="shelf-arrow" data-dir="-1" title="Scroll left"><i data-icon="chevronLeft" data-size="16"></i></button><button class="shelf-arrow" data-dir="1" title="Scroll right"><i data-icon="chevron" data-size="16"></i></button></div></div>
+          <div class="row-scroll"></div>
+        </div>
+        <div class="shelf" id="shelf-all">
+          <div class="shelf-head"><h2>Your library</h2><div class="shelf-nav"><button class="link" data-goto="library">Browse<i data-icon="chevron" data-size="16"></i></button><button class="shelf-arrow" data-dir="-1" title="Scroll left"><i data-icon="chevronLeft" data-size="16"></i></button><button class="shelf-arrow" data-dir="1" title="Scroll right"><i data-icon="chevron" data-size="16"></i></button></div></div>
+          <div class="row-scroll"></div>
+        </div>
+      </section>
+
+      <!-- Library / Favorites / Recent share one view -->
+      <section class="page" data-page="library">
+        <div class="page-head">
+          <div>
+            <h1 id="lib-title">Library</h1>
+            <p id="lib-sub" class="muted"></p>
+          </div>
+          <div class="toolbar">
+            <label class="search"><i data-icon="search"></i><input id="search" type="search" placeholder="Search" autocomplete="off"></label>
+            <select id="sort" title="Sort">
+              <option value="name">Name</option>
+              <option value="recent">Last played</option>
+              <option value="playtime">Play time</option>
+            </select>
+            <div class="seg" id="view-toggle">
+              <button data-view="grid" title="Grid"><i data-icon="grid"></i></button>
+              <button data-view="list" title="List"><i data-icon="list"></i></button>
+            </div>
+            <input id="card-size" type="range" min="140" max="260" step="10" title="Card size">
+          </div>
+        </div>
+        <div id="lib-grid" class="cards"></div>
+        <div id="lib-empty" class="empty" hidden>
+          <i data-icon="folder"></i>
+          <h3>Nothing here yet</h3>
+          <p class="muted" id="lib-empty-msg"></p>
+          <div class="empty-actions">
+            <button class="btn primary" data-cmd="addFolder"><i data-icon="folder"></i>Add ROM folder</button>
+            <button class="btn" data-cmd="openRom"><i data-icon="file"></i>Open ROM</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="page" data-page="settings">
+        <div class="page-head"><div><h1>Settings</h1><p class="muted">Changes apply instantly.</p></div></div>
+        <div class="settings">
+          <nav class="settings-nav">
+            <button data-sec="video" class="active"><i data-icon="monitor"></i>Video</button>
+            <button data-sec="input"><i data-icon="keyboard"></i>Controls</button>
+            <button data-sec="audio"><i data-icon="volume"></i>Audio</button>
+            <button data-sec="emulation"><i data-icon="cpu"></i>Emulation</button>
+            <button data-sec="library"><i data-icon="folder"></i>Library</button>
+            <button data-sec="about"><i data-icon="info"></i>About</button>
+          </nav>
+          <div class="settings-body">
+            <div class="sec" data-sec="video">
+              <h2>Video</h2>
+              <div class="opt"><div><b>Filter</b><p>How pixels are scaled to your screen.</p></div>
+                <div class="seg" data-set="filter"><button data-v="nearest">Sharp</button><button data-v="bilinear">Smooth</button></div></div>
+              <div class="opt"><div><b>Integer scaling</b><p>Every NES pixel gets the same whole number of screen pixels.</p></div>
+                <label class="switch"><input type="checkbox" data-set="integerScale"><span></span></label></div>
+              <div class="opt"><div><b>Aspect ratio</b><p>8:7 matches how games looked on a CRT TV.</p></div>
+                <div class="seg" data-set="aspect"><button data-v="par">8:7 CRT</button><button data-v="square">Square</button></div></div>
+              <div class="opt"><div><b>Scanlines</b><p>Subtle CRT-style lines.</p></div>
+                <label class="switch"><input type="checkbox" data-set="scanlines"><span></span></label></div>
+              <div class="opt"><div><b>Show FPS</b><p>Frame counter while playing.</p></div>
+                <label class="switch"><input type="checkbox" data-set="showFps"><span></span></label></div>
+            </div>
+
+            <div class="sec" data-sec="input" hidden>
+              <h2>Controls</h2>
+              <p class="muted">Click a button, then press a key. Esc cancels. Gamepads use the standard layout automatically.</p>
+              <div id="pad-map"></div>
+              <button class="btn" id="keys-reset"><i data-icon="reset"></i>Reset to defaults</button>
+              <h2 class="mt">Hotkeys</h2>
+              <div class="hotkeys" id="hotkeys"></div>
+            </div>
+
+            <div class="sec" data-sec="audio" hidden>
+              <h2>Audio</h2>
+              <div class="opt"><div><b>Mute</b><p>Takes effect the next time a game starts.</p></div>
+                <label class="switch"><input type="checkbox" data-set="mute"><span></span></label></div>
+            </div>
+
+            <div class="sec" data-sec="emulation" hidden>
+              <h2>Emulation</h2>
+              <div class="opt"><div><b>Resume where you left off</b><p>Auto-save when you quit a game and continue from there next time.</p></div>
+                <label class="switch"><input type="checkbox" data-set="autoResume"><span></span></label></div>
+              <div class="opt"><div><b>Fast-forward speed</b><p>While holding Tab.</p></div>
+                <div class="seg" data-set="ffSpeed" data-num><button data-v="2">2×</button><button data-v="4">4×</button><button data-v="8">8×</button></div></div>
+            </div>
+
+            <div class="sec" data-sec="library" hidden>
+              <h2>Library</h2>
+              <div class="opt"><div><b>Download box art</b><p>Fetch covers from the libretro-thumbnails project on GitHub. Only game titles are sent.</p></div>
+                <label class="switch"><input type="checkbox" data-set="boxArt"><span></span></label></div>
+              <h3>ROM folders</h3>
+              <div id="dirs"></div>
+              <div class="row-btns">
+                <button class="btn" data-cmd="addFolder"><i data-icon="folder"></i>Add folder</button>
+                <button class="btn" id="recent-clear"><i data-icon="trash"></i>Clear recently played</button>
+              </div>
+            </div>
+
+            <div class="sec" data-sec="about" hidden>
+              <h2>About</h2>
+              <div class="about">
+                <span class="about-logo"></span>
+                <div>
+                  <b>RetroNNetScaler</b>
+                  <p class="muted" id="about-ver"></p>
+                  <p class="muted">NES core: SimpleNES. Box art: libretro-thumbnails.</p>
+                  <button class="btn" id="open-data"><i data-icon="folder"></i>Open data folder</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Game details drawer -->
+  <div id="drawer-scrim" hidden></div>
+  <aside id="drawer" aria-hidden="true">
+    <button class="icon-btn drawer-close" id="drawer-close" title="Close"><i data-icon="x"></i></button>
+    <div class="drawer-hero"><img id="d-art" alt=""><div class="drawer-fade"></div></div>
+    <div class="drawer-body">
+      <h1 id="d-title"></h1>
+      <p id="d-sub" class="muted"></p>
+      <div class="d-actions">
+        <button class="btn primary big" id="d-play"><i data-icon="play"></i><span>Play</span></button>
+        <button class="icon-btn" id="d-fav" title="Favorite"><i data-icon="star"></i></button>
+        <button class="icon-btn" id="d-cover" title="Set custom cover"><i data-icon="image"></i></button>
+        <button class="icon-btn" id="d-folder" title="Show in folder"><i data-icon="folder"></i></button>
+      </div>
+      <div class="d-stats">
+        <div><span>Play time</span><b id="d-time"></b></div>
+        <div><span>Last played</span><b id="d-last"></b></div>
+        <div><span>Size</span><b id="d-size"></b></div>
+      </div>
+      <h3>Save states</h3>
+      <div id="d-slots" class="slots"></div>
+    </div>
+  </aside>
+
+  <!-- Game -->
+  <section id="game" hidden>
+    <div id="stage">
+      <canvas id="screen" width="256" height="240"></canvas>
+      <div id="scanlines" hidden></div>
+    </div>
+    <div id="osd">
+      <span id="osd-ff" hidden><i data-icon="ff"></i>Fast-forward</span>
+      <span id="osd-fps"></span>
+    </div>
+
+    <div id="pause" hidden>
+      <div class="pause-side">
+        <div class="pause-game">
+          <img id="p-art" alt="">
+          <div><b id="p-title"></b><span class="muted" id="p-time"></span></div>
+        </div>
+        <nav class="pause-menu">
+          <button data-act="resume" class="active"><i data-icon="play"></i>Resume<kbd>Esc</kbd></button>
+          <button data-act="save"><i data-icon="save"></i>Save State<kbd>F5</kbd></button>
+          <button data-act="load"><i data-icon="upload"></i>Load State<kbd>F8</kbd></button>
+          <button data-act="reset"><i data-icon="reset"></i>Reset<kbd>Ctrl R</kbd></button>
+          <button data-act="screenshot"><i data-icon="camera"></i>Screenshot<kbd>F12</kbd></button>
+          <button data-act="settings"><i data-icon="sliders"></i>Settings</button>
+          <button data-act="fullscreen"><i data-icon="maximize"></i>Fullscreen<kbd>F11</kbd></button>
+          <button data-act="quit"><i data-icon="logout"></i>Quit Game</button>
+        </nav>
+      </div>
+      <div class="pause-main">
+        <div id="pause-slots" hidden>
+          <h2 id="slots-title">Save State</h2>
+          <p class="muted" id="slots-hint"></p>
+          <div class="slots big" id="p-slots"></div>
+        </div>
+        <div id="pause-settings" hidden>
+          <h2>Quick settings</h2>
+          <div class="qs">
+            <div class="opt"><div><b>Filter</b></div>
+              <div class="seg" data-set="filter"><button data-v="nearest">Sharp</button><button data-v="bilinear">Smooth</button></div></div>
+            <div class="opt"><div><b>Aspect</b></div>
+              <div class="seg" data-set="aspect"><button data-v="par">8:7 CRT</button><button data-v="square">Square</button></div></div>
+            <div class="opt"><div><b>Integer scaling</b></div><label class="switch"><input type="checkbox" data-set="integerScale"><span></span></label></div>
+            <div class="opt"><div><b>Scanlines</b></div><label class="switch"><input type="checkbox" data-set="scanlines"><span></span></label></div>
+            <div class="opt"><div><b>Show FPS</b></div><label class="switch"><input type="checkbox" data-set="showFps"><span></span></label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="menus"></div>
+  <div id="toasts"></div>
+  <div id="modal" hidden><div class="modal-card"><h2 id="modal-title"></h2><div id="modal-body"></div><div class="modal-actions"><button class="btn primary" id="modal-ok">OK</button></div></div></div>
+
+  <script src="icons.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

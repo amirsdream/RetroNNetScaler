@@ -1,5 +1,7 @@
 #pragma once
 
+#include "State.h"
+
 namespace sn
 {
 // Modeled after NES timers; which have a period of (t+1) and count from t -> t-1 -> .. -> 0 -> t -> t-1 -> ... 0 -> ...
@@ -28,6 +30,7 @@ public:
     void reset() { counter = period; }
 
     int  get_period() const { return period; }
+    void state(StateIO& s) { s.pod(period); s.pod(counter); }
 
 private:
     int period  = 0;

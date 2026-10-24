@@ -15,6 +15,7 @@ public:
 
     Byte               readCHR(Address address);
     void               writeCHR(Address address, Byte value);
+    void               state(StateIO& s) { s.pod(m_mirroring); s.pod(prgbank); s.pod(chrbank); }
 
 private:
     NameTableMirroring        m_mirroring;

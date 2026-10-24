@@ -28,7 +28,8 @@ struct DMC
 
     int     shifter         = 0;
     int     remaining_bits  = 0;
-    bool    silenced        = false;
+    bool    silenced        = true;
+    bool    buffer_empty    = true;
 
     bool    interrupt       = false;
 
@@ -49,11 +50,14 @@ struct DMC
     Byte sample() const;
 
     bool has_more_samples() const { return remaining_bytes > 0; }
+    void state(StateIO& s)
+    {
+        s.pod(irqEnable); s.pod(loop); s.pod(volume); s.pod(change_enabled); s.pod(sample_begin); s.pod(sample_length); s.pod(remaining_bytes); s.pod(current_address); s.pod(sample_buffer); s.pod(shifter); s.pod(remaining_bits); s.pod(silenced); s.pod(interrupt); s.pod(buffer_empty);
+        change_rate.state(s);
+    }
 
 private:
-    // Load sample and return if it was succesfully loaded
-    bool                         load_sample();
-    int                          pop_delta();
+    void                         fill_buffer();
     IRQHandle&                   irq;
     std::function<Byte(Address)> dma;
 };

@@ -1,6 +1,7 @@
 #ifndef PPU_H
 #define PPU_H
 #include "PaletteColors.h"
+#include "State.h"
 #include "PictureBus.h"
 #include "VirtualScreen.h"
 #include <functional>
@@ -39,6 +40,13 @@ public:
     Byte getData();
     Byte getOAMData();
     void setOAMData(Byte value);
+
+    void state(StateIO& s)
+    {
+        s.bytes(m_spriteMemory);
+        s.bytes(m_scanlineSprites);
+        s.pod(m_pipelineState); s.pod(m_cycle); s.pod(m_scanline); s.pod(m_evenFrame); s.pod(m_vblank); s.pod(m_sprZeroHit); s.pod(m_spriteOverflow); s.pod(m_dataAddress); s.pod(m_tempAddress); s.pod(m_fineXScroll); s.pod(m_firstWrite); s.pod(m_dataBuffer); s.pod(m_spriteDataAddress); s.pod(m_longSprites); s.pod(m_generateInterrupt); s.pod(m_greyscaleMode); s.pod(m_showSprites); s.pod(m_showBackground); s.pod(m_hideEdgeSprites); s.pod(m_hideEdgeBackground); s.pod(m_bgPage); s.pod(m_sprPage); s.pod(m_dataAddrIncrement);
+    }
 
 private:
     Byte                      readOAM(Byte addr);

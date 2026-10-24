@@ -1,6 +1,7 @@
 #ifndef PICTUREBUS_H
 #define PICTUREBUS_H
 #include "Cartridge.h"
+#include "State.h"
 #include "Mapper.h"
 #include <vector>
 
@@ -17,6 +18,12 @@ public:
     Byte readPalette(Byte paletteAddr);
     void updateMirroring();
     void scanlineIRQ();
+    // Nametable offsets are rebuilt by updateMirroring() after loading.
+    void state(StateIO& s)
+    {
+        s.bytes(m_palette);
+        s.bytes(m_RAM);
+    }
 
 private:
     std::size_t       NameTable0, NameTable1, NameTable2, NameTable3; // indices where they start in RAM vector

@@ -19,6 +19,16 @@ public:
     void               writeCHR(Address addr, Byte value);
 
     void               scanlineIRQ();
+    void               state(StateIO& s)
+    {
+        s.pod(m_targetRegister); s.pod(m_prgBankMode); s.pod(m_chrInversion); s.pod(m_bankRegister); s.pod(m_irqEnabled); s.pod(m_irqCounter); s.pod(m_irqLatch); s.pod(m_irqReloadPending); s.pod(m_chrBanks); s.pod(m_mirroring);
+        s.bytes(m_prgRam);
+        s.bytes(m_mirroringRam);
+        s.ptr(m_prgBank0, m_cartridge.getROM());
+        s.ptr(m_prgBank1, m_cartridge.getROM());
+        s.ptr(m_prgBank2, m_cartridge.getROM());
+        s.ptr(m_prgBank3, m_cartridge.getROM());
+    }
 
 private:
     // Control variables

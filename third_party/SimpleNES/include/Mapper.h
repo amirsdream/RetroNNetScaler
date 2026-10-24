@@ -1,6 +1,7 @@
 #ifndef MAPPER_H
 #define MAPPER_H
 #include "Cartridge.h"
+#include "State.h"
 #include "IRQ.h"
 #include <functional>
 #include <memory>
@@ -46,6 +47,7 @@ public:
     bool inline hasExtendedRAM() { return m_cartridge.hasExtendedRAM(); }
 
     virtual void                   scanlineIRQ() {}
+    virtual void                   state(StateIO&) {}
 
     static std::unique_ptr<Mapper> createMapper(Type                      mapper_t,
                                                 Cartridge&                cart,

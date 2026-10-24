@@ -57,6 +57,11 @@ struct Sweep : public FrameClockable
     static bool is_muted(int current, int target) { return current < 8 || target > 0x7FF; }
 
     int         calculate_target(int current) const;
+    void        state(StateIO& s)
+    {
+        s.pod(period); s.pod(enabled); s.pod(reload); s.pod(negate); s.pod(shift); s.pod(ones_complement);
+        divider.state(s);
+    }
 };
 
 }

@@ -24,6 +24,13 @@ struct Triangle
     Byte          sample() const;
 
     int           volume() const;
+    void          state(StateIO& s)
+    {
+        length_counter.state(s);
+        linear_counter.state(s);
+        s.pod(seq_idx); s.pod(period);
+        sequencer.state(s);
+    }
 };
 
 }

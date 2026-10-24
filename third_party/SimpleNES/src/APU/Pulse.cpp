@@ -85,24 +85,15 @@ Byte Pulse::sample() const
 
 void Sweep::half_frame_clock()
 {
+    divider.set_period(period);
+    const bool fire = divider.clock(); // true when the counter was 0 (and has been reloaded)
     if (reload)
     {
-        divider.set_period(period);
+        divider.reset();
         reload = false;
-        return;
     }
 
-    if (!enabled)
-    {
-        return;
-    }
-
-    if (!divider.clock())
-    {
-        return;
-    }
-
-    if (shift > 0)
+    if (fire && enabled && shift > 0)
     {
         int current = pulse.period;
         int target  = calculate_target(current);

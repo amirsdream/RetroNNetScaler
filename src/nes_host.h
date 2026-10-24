@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace scaler
 {
@@ -27,8 +28,16 @@ public:
     NesHost();
 
     bool loadRom(const std::string& path);
+    void reset();
+
+    // Snapshot of the whole machine; load fails on a different ROM or bad data.
+    bool saveState(std::vector<std::uint8_t>& out);
+    bool loadState(const std::vector<std::uint8_t>& in);
     void setController1(std::uint8_t buttons);
     void setMute(bool mute);
+    // Drop queued audio (pause, load, reset) / stop producing it (fast-forward).
+    void flushAudio() { m_audioPlayer.flush(); }
+    void setAudioEnabled(bool enabled) { m_audioPlayer.setEnabled(enabled); }
 
     // Advance emulation; returns true when a new frame is ready.
     bool stepFrame();

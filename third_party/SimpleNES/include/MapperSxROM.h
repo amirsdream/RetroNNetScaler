@@ -16,6 +16,13 @@ public:
     void               writeCHR(Address addr, Byte value);
 
     NameTableMirroring getNameTableMirroring();
+    void               state(StateIO& s)
+    {
+        s.pod(m_mirroing); s.pod(m_modeCHR); s.pod(m_modePRG); s.pod(m_tempRegister); s.pod(m_writeCounter); s.pod(m_regPRG); s.pod(m_regCHR0); s.pod(m_regCHR1); s.pod(m_firstBankCHRIdx); s.pod(m_secondBankCHRIdx);
+        s.ptr(m_firstBankPRG, m_cartridge.getROM());
+        s.ptr(m_secondBankPRG, m_cartridge.getROM());
+        s.bytes(m_characterRAM);
+    }
 
 private:
     void                      calculatePRGPointers();

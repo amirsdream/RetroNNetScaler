@@ -14,6 +14,11 @@ public:
     void               writeCHR(Address address, Byte value);
     Byte               prgbank;
     Byte               chrbank;
+    void               state(StateIO& s)
+    {
+        s.pod(prgbank); s.pod(chrbank); s.pod(m_mirroring);
+        s.bytes(m_characterRAM);
+    }
 
 private:
     NameTableMirroring        m_mirroring;

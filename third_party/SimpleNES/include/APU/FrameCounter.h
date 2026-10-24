@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IRQ.h"
+#include "State.h"
 #include <functional>
 #include <vector>
 
@@ -49,5 +50,9 @@ struct FrameCounter
     void clearFrameInterrupt();
     void clock();
     void reset(Mode m, bool irq_inhibit);
+    void clockQuarter();
+    void clockHalf();
+    void setFrameInterrupt();
+    void state(StateIO& s) { s.pod(mode); s.pod(counter); s.pod(interrupt_inhibit); s.pod(frame_interrupt); }
 };
 }

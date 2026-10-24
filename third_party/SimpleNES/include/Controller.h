@@ -1,6 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 #include <cstdint>
+#include "State.h"
 #include <vector>
 
 namespace sn
@@ -28,6 +29,7 @@ public:
 
     // Host feeds current button state each frame (bit i == Buttons enum).
     void setButtons(Byte buttonMask);
+    void state(StateIO& s) { s.pod(m_strobe); s.pod(m_keyStates); s.pod(m_buttonMask); }
 
 private:
     bool         m_strobe     = false;

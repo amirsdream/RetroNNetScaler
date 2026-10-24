@@ -27,8 +27,7 @@ public:
     APU(AudioPlayer& player, IRQHandle& irq, std::function<Byte(Address)> dmcDma)
       : dmc(irq, dmcDma)
       , frame_counter(setup_frame_counter(irq))
-      , audio_queue(player.audio_queue)
-      , sampling_timer(nanoseconds(int64_t(1e9) / int64_t(player.output_sample_rate)))
+      , audio(player)
     {
     }
 
@@ -38,12 +37,22 @@ public:
     void writeRegister(Address addr, Byte value);
     Byte readStatus();
 
+    void state(StateIO& s)
+    {
+        pulse1.state(s);
+        pulse2.state(s);
+        triangle.state(s);
+        noise.state(s);
+        dmc.state(s);
+        frame_counter.state(s);
+        s.pod(divideByTwo);
+    }
+
 private:
     FrameCounter             setup_frame_counter(IRQHandle& irq);
     bool                     divideByTwo = false;
 
-    spsc::RingBuffer<float>& audio_queue;
-    Timer                    sampling_timer;
+    AudioPlayer&             audio;
 };
 
 }

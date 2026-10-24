@@ -13,28 +13,47 @@ void FrameCounter::clearFrameInterrupt()
     }
 };
 
+// $4017 write. The sequencer restarts a few CPU cycles after the write (3-4 on hardware; the CPU here applies writes
+// at instruction granularity, so 3 is used). In 5-step mode the quarter and half frame units are clocked at once.
 void FrameCounter::reset(Mode m, bool irq_inhibit)
 {
     mode              = m;
     interrupt_inhibit = irq_inhibit;
-    // TODO: delay reset by 3-4 cycles?
+    counter           = -3;
     if (interrupt_inhibit)
     {
         clearFrameInterrupt();
     }
     if (mode == Seq5Step)
     {
-        for (FrameClockable& c : frame_slots)
-        {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-            // clock length counter & sweep units
-            c.half_frame_clock();
-        }
+        clockQuarter();
+        clockHalf();
     }
 }
 
-// clocked at apu freq (half the cpu freq)
+void FrameCounter::clockQuarter()
+{
+    // envelopes & triangle's linear counter
+    for (FrameClockable& c : frame_slots)
+        c.quarter_frame_clock();
+}
+
+void FrameCounter::clockHalf()
+{
+    // length counters & sweep units
+    for (FrameClockable& c : frame_slots)
+        c.half_frame_clock();
+}
+
+void FrameCounter::setFrameInterrupt()
+{
+    if (interrupt_inhibit)
+        return;
+    frame_interrupt = true;
+    irq.pull();
+}
+
+// Clocked every CPU cycle; step positions are CPU cycles after the sequencer restart (NESdev "APU Frame Counter").
 void FrameCounter::clock()
 {
     counter += 1;
@@ -42,72 +61,45 @@ void FrameCounter::clock()
     switch (counter)
     {
     case Q1:
-        for (FrameClockable& c : frame_slots)
-        {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-        }
-        LOG(CpuTrace) << "framecounter: Q1 clock" << std::endl;
+        clockQuarter();
         break;
     case Q2:
-        for (FrameClockable& c : frame_slots)
-        {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-            // clock length counter & sweep units
-            c.half_frame_clock();
-        }
-        LOG(CpuTrace) << "framecounter: Q2 clock" << std::endl;
+        clockQuarter();
+        clockHalf();
         break;
     case Q3:
-        for (FrameClockable& c : frame_slots)
-        {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-        }
-        LOG(CpuTrace) << "framecounter: Q3 clock" << std::endl;
+        clockQuarter();
+        break;
+    case preQ4:
+        if (mode == Seq4Step)
+            setFrameInterrupt();
         break;
     case Q4:
-        // only 4-step
-        if (mode != Seq4Step)
+        if (mode == Seq4Step)
         {
-            break;
+            clockQuarter();
+            clockHalf();
+            setFrameInterrupt();
         }
-        for (FrameClockable& c : frame_slots)
+        break;
+    case postQ4:
+        if (mode == Seq4Step)
         {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-            // clock length counter & sweep units
-            c.half_frame_clock();
-        }
-        LOG(CpuTrace) << "framecounter: Q4 clock" << std::endl;
-        // set frame irq if not inhibit
-        if (!interrupt_inhibit)
-        {
-            irq.pull();
-            frame_interrupt = true;
+            setFrameInterrupt();
+            counter = 0;
         }
         break;
     case Q5:
-        // only 5-step
-        if (mode != Seq5Step)
+        if (mode == Seq5Step)
         {
-            break;
+            clockQuarter();
+            clockHalf();
         }
-        for (FrameClockable& c : frame_slots)
-        {
-            // clock envelopes & triangle's linear counter
-            c.quarter_frame_clock();
-            // clock length counter & sweep units
-            c.half_frame_clock();
-        }
-        LOG(CpuTrace) << "framecounter: Q5 clock" << std::endl;
         break;
-    };
-
-    if ((mode == Seq4Step && counter == seq4step_length) || (/* mode == Seq5Step && */ counter == seq5step_length))
-    {
-        counter = 0;
+    case seq5step_length:
+        if (mode == Seq5Step)
+            counter = 0;
+        break;
     }
 }
 }

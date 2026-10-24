@@ -62,18 +62,16 @@ void LinearCounter::quarter_frame_clock()
     if (reload)
     {
         counter = reloadValue;
-        if (!control)
-        {
-            reload = false;
-        }
     }
-
-    if (counter == 0)
+    else if (counter > 0)
     {
-        return;
+        --counter;
     }
 
-    --counter;
+    if (!control)
+    {
+        reload = false;
+    }
 }
 
 /***** Volume *****/
@@ -85,9 +83,11 @@ void Volume::quarter_frame_clock()
         shouldStart = false;
         decayVolume = max_volume;
         divider.set_period(fixedVolumeOrPeriod);
+        divider.reset();
         return;
     }
 
+    divider.set_period(fixedVolumeOrPeriod);
     if (!divider.clock())
     {
         return;

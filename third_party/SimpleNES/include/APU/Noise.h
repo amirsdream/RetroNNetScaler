@@ -27,5 +27,12 @@ struct Noise
     void clock();
 
     Byte sample() const;
+    void state(StateIO& s)
+    {
+        volume.state(s);
+        length_counter.state(s);
+        divider.state(s);
+        s.pod(mode); s.pod(period); s.pod(shift_register);
+    }
 };
 }

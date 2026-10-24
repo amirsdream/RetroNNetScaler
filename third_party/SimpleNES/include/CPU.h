@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 #include "CPUOpcodes.h"
+#include "State.h"
 #include "IRQ.h"
 #include "MainBus.h"
 #include <list>
@@ -44,6 +45,10 @@ public:
 
     IRQHandle& createIRQHandler();
     void       setIRQPulldown(int bit, bool state);
+    void       state(StateIO& s)
+    {
+        s.pod(m_skipCycles); s.pod(m_cycles); s.pod(r_PC); s.pod(r_SP); s.pod(r_A); s.pod(r_X); s.pod(r_Y); s.pod(f_C); s.pod(f_Z); s.pod(f_I); s.pod(f_D); s.pod(f_V); s.pod(f_N); s.pod(m_pendingNMI); s.pod(m_irqPulldowns);
+    }
 
 private:
     void                  interruptSequence(InterruptType type);
